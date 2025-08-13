@@ -1,0 +1,33 @@
+# Job Center API .htaccess
+# Ensure all API requests go through index.php
+
+RewriteEngine On
+
+# Handle CORS preflight requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Route all requests to index.php unless file exists
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Set security headers
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Prevent access to PHP files in subdirectories
+<Files "*.php">
+    <RequireAll>
+        Require all denied
+        Require local
+    </RequireAll>
+</Files>
+
+# Allow access to main index.php
+<Files "index.php">
+    Require all granted
+</Files>
