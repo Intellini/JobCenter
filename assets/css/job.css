@@ -1,0 +1,517 @@
+/* Job Page Specific Styles */
+
+/* Job Page Layout */
+.job-page {
+    min-height: 100vh;
+    background-color: var(--light-color);
+}
+
+/* QC Hold State */
+.job-page.qc-hold {
+    position: relative;
+}
+
+.qc-hold-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qc-hold-message {
+    background: white;
+    padding: 3rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.qc-hold-message h2 {
+    color: var(--danger-color);
+    margin-bottom: 1rem;
+    font-size: 2rem;
+}
+
+.qc-hold-message p {
+    color: var(--text-light);
+    font-size: 1.25rem;
+}
+
+/* Job Header Bar */
+.job-header-bar {
+    background-color: #f8f9fa;
+    color: #333;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header-logo {
+    height: 40px;
+    width: auto;
+}
+
+.back-button {
+    color: #0056b3;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+    margin-left: 1rem;
+}
+
+.back-button:hover {
+    background-color: rgba(0, 86, 179, 0.1);
+}
+
+.job-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.status-badge {
+    font-size: 0.875rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.header-clock {
+    font-family: 'Courier New', monospace;
+    font-size: 1.25rem;
+}
+
+/* Job Main Content */
+.job-main {
+    padding: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Job Info Card */
+.job-info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+}
+
+.info-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-item label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.info-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.info-value.large {
+    font-size: 2rem;
+}
+
+.info-subvalue {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+}
+
+.unit {
+    font-size: 1rem;
+    color: var(--text-light);
+    font-weight: 400;
+}
+
+/* Progress Display */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.progress-bar-large {
+    flex: 1;
+    height: 12px;
+    background-color: var(--light-color);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success-color) 0%, #34d399 100%);
+    transition: width 0.3s ease;
+}
+
+.progress-percent {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--success-color);
+    min-width: 3rem;
+    text-align: right;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.action-buttons.read-only {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.button-group {
+    display: grid;
+    gap: 1rem;
+}
+
+.primary-actions {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.secondary-actions {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+/* Action Button Styles */
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    border: none;
+    border-radius: 12px;
+    background: white;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+    border: 2px solid var(--border-color);
+    min-height: 120px;
+    gap: 0.75rem;
+}
+
+.action-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-color);
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.action-btn-small {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    background: white;
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    min-height: 80px;
+    gap: 0.5rem;
+}
+
+.action-btn-small:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-color);
+}
+
+.btn-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.action-btn-small .btn-icon {
+    font-size: 1.5rem;
+}
+
+.btn-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.action-btn-small .btn-label {
+    font-size: 0.75rem;
+}
+
+/* Button Color Variants */
+.btn-setup {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.btn-fpqc {
+    border-color: var(--warning-color);
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.btn-pause {
+    border-color: var(--warning-color);
+    background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+}
+
+.btn-resume {
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.btn-complete {
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+}
+
+.btn-breakdown {
+    border-color: var(--danger-color);
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+/* Read-only Message */
+.read-only-message {
+    background: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.read-only-message p {
+    margin-bottom: 0.5rem;
+    color: var(--text-light);
+}
+
+/* Modal Form Styles */
+.modal-form {
+    padding: 1.5rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    justify-content: flex-end;
+}
+
+.job-info {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    background: var(--light-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    margin: 0 1rem;
+}
+
+/* Radio Button Styles */
+.radio-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.radio-custom {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    position: relative;
+    transition: all 0.2s;
+}
+
+input[type="radio"] {
+    display: none;
+}
+
+input[type="radio"]:checked + .radio-custom {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+}
+
+input[type="radio"]:checked + .radio-custom::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: white;
+}
+
+/* Completion Summary */
+.completion-summary {
+    background: var(--light-color);
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.completion-summary h3 {
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.summary-row:last-child {
+    margin-bottom: 0;
+    font-weight: 600;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Loading States */
+.modal-form.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.modal-form.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .job-main {
+        padding: 1rem;
+    }
+    
+    .job-info-card {
+        padding: 1.5rem;
+    }
+    
+    .info-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .primary-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .secondary-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-actions {
+        flex-direction: column-reverse;
+    }
+    
+    .job-header-bar {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .secondary-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-btn {
+        min-height: 100px;
+        padding: 1rem;
+    }
+    
+    .btn-icon {
+        font-size: 1.5rem;
+    }
+    
+    .btn-label {
+        font-size: 0.75rem;
+    }
+}
