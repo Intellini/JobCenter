@@ -54,11 +54,14 @@
     justify-content: space-between;
 }
 
+<<<<<<< HEAD
 .header-logo {
     height: 40px;
     width: auto;
 }
 
+=======
+>>>>>>> Initial commit: Job Center simplified tablet interface
 .back-button {
     color: #0056b3;
     text-decoration: none;
@@ -108,15 +111,25 @@
     border-radius: 12px;
     padding: 2rem;
     margin-bottom: 2rem;
+<<<<<<< HEAD
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
+=======
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .info-row {
     display: grid;
+<<<<<<< HEAD
     grid-template-columns: 1fr 1fr;
     gap: 2rem;
     margin-bottom: 1.5rem;
+=======
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .info-row:last-child {
@@ -124,6 +137,7 @@
 }
 
 .info-item label {
+<<<<<<< HEAD
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text-light);
@@ -135,6 +149,16 @@
 
 .info-value {
     font-size: 1.25rem;
+=======
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+}
+
+.info-value {
+    font-size: 1.125rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
     font-weight: 600;
     color: var(--text-color);
 }
@@ -150,12 +174,21 @@
 }
 
 .unit {
+<<<<<<< HEAD
     font-size: 1rem;
     color: var(--text-light);
     font-weight: 400;
 }
 
 /* Progress Display */
+=======
+    font-size: 0.875rem;
+    color: var(--text-light);
+    font-weight: normal;
+}
+
+/* Progress Container */
+>>>>>>> Initial commit: Job Center simplified tablet interface
 .progress-container {
     display: flex;
     align-items: center;
@@ -164,6 +197,7 @@
 
 .progress-bar-large {
     flex: 1;
+<<<<<<< HEAD
     height: 12px;
     background-color: var(--light-color);
     border-radius: 6px;
@@ -183,17 +217,43 @@
     color: var(--success-color);
     min-width: 3rem;
     text-align: right;
+=======
+    height: 20px;
+    background-color: var(--light-color);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-bar-large .progress-fill {
+    height: 100%;
+    background-color: var(--success-color);
+    transition: width 0.3s;
+}
+
+.progress-percent {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--success-color);
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 /* Action Buttons */
 .action-buttons {
+<<<<<<< HEAD
     display: flex;
     flex-direction: column;
     gap: 2rem;
+=======
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .action-buttons.read-only {
     opacity: 0.6;
+<<<<<<< HEAD
     pointer-events: none;
 }
 
@@ -211,12 +271,32 @@
 }
 
 /* Action Button Styles */
+=======
+}
+
+.button-group {
+    margin-bottom: 2rem;
+}
+
+.button-group:last-child {
+    margin-bottom: 0;
+}
+
+/* Primary Action Buttons */
+.primary-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+>>>>>>> Initial commit: Job Center simplified tablet interface
 .action-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
+<<<<<<< HEAD
     border: none;
     border-radius: 12px;
     background: white;
@@ -227,18 +307,113 @@
     border: 2px solid var(--border-color);
     min-height: 120px;
     gap: 0.75rem;
+=======
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 120px;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .action-btn:hover:not(:disabled) {
     transform: translateY(-2px);
+<<<<<<< HEAD
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
     border-color: var(--primary-color);
+=======
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .action-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+<<<<<<< HEAD
     transform: none !important;
+=======
+}
+
+.action-btn .btn-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.action-btn .btn-label {
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.2;
+}
+
+/* Button Colors */
+.btn-setup {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-setup:hover:not(:disabled) {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-fpqc {
+    border-color: var(--warning-color);
+    color: var(--warning-color);
+}
+
+.btn-fpqc:hover:not(:disabled) {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.btn-pause {
+    border-color: var(--warning-color);
+    color: var(--warning-color);
+}
+
+.btn-pause:hover:not(:disabled) {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.btn-resume {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.btn-resume:hover:not(:disabled) {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.btn-complete {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.btn-complete:hover:not(:disabled) {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.btn-breakdown {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+.btn-breakdown:hover:not(:disabled) {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Secondary Action Buttons */
+.secondary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .action-btn-small {
@@ -247,6 +422,7 @@
     align-items: center;
     justify-content: center;
     padding: 1rem;
+<<<<<<< HEAD
     border: none;
     border-radius: 8px;
     background: white;
@@ -268,10 +444,28 @@
 .btn-icon {
     font-size: 2rem;
     line-height: 1;
+=======
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 80px;
+}
+
+.action-btn-small:hover:not(:disabled) {
+    background-color: var(--light-color);
+}
+
+.action-btn-small:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .action-btn-small .btn-icon {
     font-size: 1.5rem;
+<<<<<<< HEAD
 }
 
 .btn-label {
@@ -334,12 +528,153 @@
 /* Modal Form Styles */
 .modal-form {
     padding: 1.5rem;
+=======
+    margin-bottom: 0.25rem;
+}
+
+.action-btn-small .btn-label {
+    font-size: 0.75rem;
+}
+
+/* Read Only Message */
+.read-only-message {
+    text-align: center;
+    padding: 2rem;
+    background-color: #fef3c7;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.read-only-message p {
+    margin: 0.5rem 0;
+    color: #92400e;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .job-main {
+        padding: 1rem;
+    }
+    
+    .info-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .primary-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .action-btn {
+        min-height: 100px;
+        padding: 1rem;
+    }
+    
+    .action-btn .btn-icon {
+        font-size: 2rem;
+    }
+}
+
+/* Touch-friendly for tablets */
+@media (pointer: coarse) {
+    .action-btn {
+        min-height: 120px;
+    }
+    
+    .action-btn-small {
+        min-width: 90px;
+        min-height: 80px;
+    }
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: none;
+}
+
+.modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    display: none;
+}
+
+.modal.active {
+    display: block;
+}
+
+.modal-overlay.active {
+    display: block;
+}
+
+/* Modal Header */
+.modal-header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    position: relative;
+}
+
+.modal-header h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+}
+
+.job-info {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Modal Form */
+.modal-form {
+    padding: 2rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
+<<<<<<< HEAD
     margin-bottom: 1rem;
 }
 
@@ -368,6 +703,66 @@
 .radio-group {
     display: flex;
     gap: 1rem;
+=======
+    margin-bottom: 1.5rem;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+    font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    min-height: 44px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-group small {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+}
+
+/* Radio Group */
+.radio-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .radio-label {
@@ -375,7 +770,15 @@
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+<<<<<<< HEAD
     font-weight: 500;
+=======
+    font-weight: normal;
+}
+
+.radio-label input[type="radio"] {
+    display: none;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .radio-custom {
@@ -384,6 +787,7 @@
     border: 2px solid var(--border-color);
     border-radius: 50%;
     position: relative;
+<<<<<<< HEAD
     transition: all 0.2s;
 }
 
@@ -406,10 +810,81 @@ input[type="radio"]:checked + .radio-custom::after {
     height: 8px;
     border-radius: 50%;
     background-color: white;
+=======
+    transition: border-color 0.2s;
+}
+
+.radio-label input[type="radio"]:checked + .radio-custom {
+    border-color: var(--primary-color);
+}
+
+.radio-label input[type="radio"]:checked + .radio-custom::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 1.5rem;
+}
+
+.modal-actions .btn {
+    min-width: 120px;
+    padding: 0.75rem 1.5rem;
+}
+
+.btn-cancel {
+    background-color: var(--light-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-cancel:hover {
+    background-color: #e5e7eb;
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #059669;
+}
+
+.btn-warning {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #b91c1c;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 /* Completion Summary */
 .completion-summary {
+<<<<<<< HEAD
     background: var(--light-color);
     padding: 1rem;
     border-radius: 8px;
@@ -418,6 +893,17 @@ input[type="radio"]:checked + .radio-custom::after {
 
 .completion-summary h3 {
     margin-bottom: 1rem;
+=======
+    background-color: var(--light-color);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.completion-summary h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.125rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
     color: var(--text-color);
 }
 
@@ -425,11 +911,16 @@ input[type="radio"]:checked + .radio-custom::after {
     display: flex;
     justify-content: space-between;
     margin-bottom: 0.5rem;
+<<<<<<< HEAD
+=======
+    font-size: 0.875rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
 }
 
 .summary-row:last-child {
     margin-bottom: 0;
     font-weight: 600;
+<<<<<<< HEAD
     padding-top: 0.5rem;
     border-top: 1px solid var(--border-color);
 }
@@ -437,12 +928,52 @@ input[type="radio"]:checked + .radio-custom::after {
 /* Loading States */
 .modal-form.loading {
     opacity: 0.6;
+=======
+}
+
+/* Breakdown Warning */
+.breakdown-warning {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.breakdown-warning p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+}
+
+.breakdown-warning p:first-child {
+    color: var(--danger-color);
+}
+
+/* Contact Info */
+.contact-info {
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.contact-info p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+}
+
+/* Loading State */
+.modal-form.loading {
+    position: relative;
+>>>>>>> Initial commit: Job Center simplified tablet interface
     pointer-events: none;
 }
 
 .modal-form.loading::after {
     content: '';
     position: absolute;
+<<<<<<< HEAD
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -480,10 +1011,51 @@ input[type="radio"]:checked + .radio-custom::after {
     
     .secondary-actions {
         grid-template-columns: repeat(2, 1fr);
+=======
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    z-index: 10;
+}
+
+.modal-form.loading::before {
+    content: 'Loading...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 11;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Responsive Modal */
+@media (max-width: 768px) {
+    .modal {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .modal-header {
+        padding: 1rem;
+    }
+    
+    .modal-header h2 {
+        font-size: 1.25rem;
+        margin-right: 3rem;
+    }
+    
+    .modal-form {
+        padding: 1rem;
+>>>>>>> Initial commit: Job Center simplified tablet interface
     }
     
     .form-row {
         grid-template-columns: 1fr;
+<<<<<<< HEAD
     }
     
     .modal-actions {
@@ -515,3 +1087,67 @@ input[type="radio"]:checked + .radio-custom::after {
         font-size: 0.75rem;
     }
 }
+=======
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    .modal-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Touch-friendly modal controls */
+@media (pointer: coarse) {
+    .modal-close {
+        width: 48px;
+        height: 48px;
+        font-size: 2.5rem;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        min-height: 48px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .modal-actions .btn {
+        min-height: 48px;
+        font-size: 1rem;
+    }
+    
+    .radio-custom {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .radio-label input[type="radio"]:checked + .radio-custom::after {
+        top: 4px;
+        left: 4px;
+        width: 12px;
+        height: 12px;
+    }
+}
+/* Header Logo */
+.header-logo {
+    height: 40px;
+    margin-right: 1rem;
+}
+
+.header-clock {
+    font-family: "Courier New", monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #0056b3;
+}
+
+/* Update title color */
+.job-title {
+    color: #333;
+}
+>>>>>>> Initial commit: Job Center simplified tablet interface

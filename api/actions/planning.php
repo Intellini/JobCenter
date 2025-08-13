@@ -62,6 +62,54 @@ try {
             }
             break;
             
+<<<<<<< HEAD
+=======
+        case 'remove_job':
+            if (!isset($input['planning_id'])) {
+                throw new Exception('Missing planning_id for remove_job');
+            }
+            
+            // Get the sequence number of the job being removed
+            $removed_seq = $db->getValue("
+                SELECT mp_op_seq 
+                FROM mach_planning 
+                WHERE mp_op_id = ?
+            ", [$input['planning_id']]);
+            
+            if ($removed_seq === null) {
+                throw new Exception('Planning job not found');
+            }
+            
+            // Get machine, date, shift for updating other sequences
+            $planning_info = $db->getRow("
+                SELECT mp_op_mach, mp_op_date, mp_op_shift 
+                FROM mach_planning 
+                WHERE mp_op_id = ?
+            ", [$input['planning_id']]);
+            
+            // Remove the job
+            $result = $db->query("DELETE FROM mach_planning WHERE mp_op_id = ?", [$input['planning_id']]);
+            
+            if ($result) {
+                // Update sequence numbers of remaining jobs
+                $db->query("
+                    UPDATE mach_planning 
+                    SET mp_op_seq = mp_op_seq - 1 
+                    WHERE mp_op_mach = ? AND mp_op_date = ? AND mp_op_shift = ? AND mp_op_seq > ?
+                ", [
+                    $planning_info['mp_op_mach'], 
+                    $planning_info['mp_op_date'], 
+                    $planning_info['mp_op_shift'], 
+                    $removed_seq
+                ]);
+                
+                echo json_encode(['success' => true, 'message' => 'Job removed from planning sequence']);
+            } else {
+                throw new Exception('Failed to remove job from planning');
+            }
+            break;
+            
+>>>>>>> Initial commit: Job Center simplified tablet interface
         case 'update_sequence':
             if (!isset($input['machine_id'], $input['date'], $input['shift'], $input['sequence'])) {
                 throw new Exception('Missing required parameters for update_sequence');
@@ -97,6 +145,63 @@ try {
             }
             break;
             
+<<<<<<< HEAD
+=======
+        case 'move_job':
+            if (!isset($input['planning_id'], $input['direction'])) {
+                throw new Exception('Missing parameters for move_job');
+            }
+            
+            // Get current job info
+            $current_job = $db->getRow("
+                SELECT mp_op_seq, mp_op_mach, mp_op_date, mp_op_shift 
+                FROM mach_planning 
+                WHERE mp_op_id = ?
+            ", [$input['planning_id']]);
+            
+            if (!$current_job) {
+                throw new Exception('Planning job not found');
+            }
+            
+            $current_seq = $current_job['mp_op_seq'];
+            $new_seq = $input['direction'] === 'up' ? $current_seq - 1 : $current_seq + 1;
+            
+            // Check if the new position is valid
+            $min_seq = $db->getValue("
+                SELECT MIN(mp_op_seq) 
+                FROM mach_planning 
+                WHERE mp_op_mach = ? AND mp_op_date = ? AND mp_op_shift = ?
+            ", [$current_job['mp_op_mach'], $current_job['mp_op_date'], $current_job['mp_op_shift']]);
+            
+            $max_seq = $db->getValue("
+                SELECT MAX(mp_op_seq) 
+                FROM mach_planning 
+                WHERE mp_op_mach = ? AND mp_op_date = ? AND mp_op_shift = ?
+            ", [$current_job['mp_op_mach'], $current_job['mp_op_date'], $current_job['mp_op_shift']]);
+            
+            if ($new_seq < $min_seq || $new_seq > $max_seq) {
+                throw new Exception('Cannot move job beyond sequence bounds');
+            }
+            
+            // Find the job at the target position
+            $target_job = $db->getRow("
+                SELECT mp_op_id 
+                FROM mach_planning 
+                WHERE mp_op_mach = ? AND mp_op_date = ? AND mp_op_shift = ? AND mp_op_seq = ?
+            ", [$current_job['mp_op_mach'], $current_job['mp_op_date'], $current_job['mp_op_shift'], $new_seq]);
+            
+            if ($target_job) {
+                // Swap the sequence numbers
+                $db->query("UPDATE mach_planning SET mp_op_seq = ? WHERE mp_op_id = ?", [$current_seq, $target_job['mp_op_id']]);
+                $db->query("UPDATE mach_planning SET mp_op_seq = ? WHERE mp_op_id = ?", [$new_seq, $input['planning_id']]);
+                
+                echo json_encode(['success' => true, 'message' => 'Job position updated']);
+            } else {
+                throw new Exception('Target position not found');
+            }
+            break;
+            
+>>>>>>> Initial commit: Job Center simplified tablet interface
         case 'clear_job_sequence':
             if (!isset($input['job_id'])) {
                 throw new Exception('Missing job_id for clear_job_sequence');

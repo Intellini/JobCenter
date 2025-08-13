@@ -50,6 +50,12 @@ return [
         'views' => dirname(__DIR__) . '/views',
     ],
     
+    // Production planning settings
+    'planning' => [
+        'changeover_time_minutes' => 15,  // Default changeover time between jobs
+        'default_job_time_minutes' => 50, // Default job time if not specified
+    ],
+    
     // Feature flags
     'features' => [
         'auto_refresh' => true,

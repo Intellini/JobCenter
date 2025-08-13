@@ -124,14 +124,24 @@ class ApiResponse {
     /**
      * Job status updated successfully
      * 
+<<<<<<< HEAD
      * @param int $job_id Job ID
+=======
+     * @param int $planning_id Planning ID
+>>>>>>> Initial commit: Job Center simplified tablet interface
      * @param string $action Action performed
      * @param mixed $data Additional data
      * @return string JSON response
      */
+<<<<<<< HEAD
     public function jobActionSuccess($job_id, $action, $data = null) {
         $response_data = [
             'job_id' => $job_id,
+=======
+    public function jobActionSuccess($planning_id, $action, $data = null) {
+        $response_data = [
+            'planning_id' => $planning_id,
+>>>>>>> Initial commit: Job Center simplified tablet interface
             'action' => $action,
             'timestamp' => date('Y-m-d H:i:s')
         ];
@@ -144,6 +154,7 @@ class ApiResponse {
     }
     
     /**
+<<<<<<< HEAD
      * Invalid job ID response
      * 
      * @param int $job_id Job ID that was invalid
@@ -151,16 +162,33 @@ class ApiResponse {
      */
     public function invalidJobId($job_id) {
         return $this->error('Invalid job ID: ' . $job_id, 'INVALID_JOB_ID', 404);
+=======
+     * Invalid planning ID response
+     * 
+     * @param int $planning_id Planning ID that was invalid
+     * @return string JSON response
+     */
+    public function invalidPlanningId($planning_id) {
+        return $this->error('Invalid planning ID: ' . $planning_id, 'INVALID_PLANNING_ID', 404);
+>>>>>>> Initial commit: Job Center simplified tablet interface
     }
     
     /**
      * Job not found response
      * 
+<<<<<<< HEAD
      * @param int $job_id Job ID
      * @return string JSON response
      */
     public function jobNotFound($job_id) {
         return $this->error('Job not found for ID: ' . $job_id, 'JOB_NOT_FOUND', 404);
+=======
+     * @param int $planning_id Planning ID
+     * @return string JSON response
+     */
+    public function jobNotFound($planning_id) {
+        return $this->error('Job not found for planning ID: ' . $planning_id, 'JOB_NOT_FOUND', 404);
+>>>>>>> Initial commit: Job Center simplified tablet interface
     }
     
     /**
