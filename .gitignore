@@ -1,0 +1,82 @@
+# System files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+error_log
+access_log
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+tmp/
+temp/
+cache/
+
+# Environment and config files with sensitive data
+.env
+.env.local
+.env.*.local
+config.local.php
+dbcon/conn.php
+
+# Dependencies (if any future ones are added)
+vendor/
+node_modules/
+bower_components/
+
+# Compiled/minified files
+*.min.js
+*.min.css
+
+# Database dumps
+*.sql
+*.sqlite
+*.db
+
+# Backups
+*.bak
+*.backup
+*.old
+backup/
+
+# Sessions
+sessions/
+*.session
+
+# Uploaded files (if any)
+uploads/
+uploaded/
+
+# Service Worker cache (if generated)
+sw-cache/
+
+# OS generated files
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# PHP specific
+*.phar
+composer.lock
+phpunit.xml
+
+# Test coverage
+coverage/
+.phpunit.result.cache
+
+# Documentation build files
+docs/_build/
