@@ -122,10 +122,10 @@
         $use_timeline = false;
         $has_timing_data = false;
         
-        // Check if we have timing data from mach_planning
-        if (!empty($planning_jobs)) {
-            foreach ($planning_jobs as $pj) {
-                if (!empty($pj['planned_start']) && !empty($pj['planned_end'])) {
+        // Check if we have timing data from jobs
+        if (!empty($jobs)) {
+            foreach ($jobs as $pj) {
+                if (!empty($pj['op_pln_stdt']) && !empty($pj['op_pln_endt'])) {
                     $has_timing_data = true;
                     break;
                 }
@@ -165,6 +165,13 @@
                 $job['row_index'] = $row;
                 $job_rows[$row][] = ['start' => $start, 'end' => $end];
                 $max_rows = max($max_rows, $row + 1);
+            }
+        } else {
+            // Set default row_index if not using timeline
+            if (!empty($jobs)) {
+                foreach ($jobs as &$job) {
+                    $job['row_index'] = 0;
+                }
             }
         }
         

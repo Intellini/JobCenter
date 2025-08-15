@@ -1024,9 +1024,22 @@ $available_jobs = $db->getAll("
         
         // Save to mach_planning and exit to operator view
         function saveAndExitToOperator() {
+            // Prevent multiple clicks
+            const button = event.target;
+            if (button.disabled) return;
+            
+            // Show loading state
+            button.disabled = true;
+            const originalText = button.textContent;
+            button.textContent = 'Saving...';
+            button.style.opacity = '0.7';
+            
             // Get the timeline data from planning component
             if (!planningComponent) {
                 alert('Planning component not initialized');
+                button.disabled = false;
+                button.textContent = originalText;
+                button.style.opacity = '1';
                 return;
             }
             
@@ -1085,6 +1098,13 @@ $available_jobs = $db->getAll("
             })
             .catch(error => {
                 console.error('Error saving planning:', error);
+                // Restore button state
+                const button = document.querySelector('.btn-operator-view');
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Exit to Operator View';
+                    button.style.opacity = '1';
+                }
                 // Show error but still allow redirect
                 if (confirm('Error saving planning: ' + error.message + '\n\nContinue to operator view anyway?')) {
                     window.location.href = 'index.php?m=<?php echo urlencode($machine_code); ?>';
