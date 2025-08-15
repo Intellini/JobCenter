@@ -598,7 +598,7 @@ $available_jobs = $db->getAll("
                 </div>
             </div>
             <div class="header-actions">
-                <a href="index.php?m=<?php echo urlencode($machine_code); ?>" class="btn-operator-view">Exit to Operator View</a>
+                <button onclick="saveAndExitToOperator()" class="btn-operator-view">Exit to Operator View</button>
                 <a href="?logout=1" class="btn btn-logout">Logout</a>
             </div>
         </div>
@@ -1020,6 +1020,76 @@ $available_jobs = $db->getAll("
             }));
             
             localStorage.setItem(STORAGE_KEY, JSON.stringify(sequence));
+        }
+        
+        // Save to mach_planning and exit to operator view
+        function saveAndExitToOperator() {
+            // Get the timeline data from planning component
+            if (!planningComponent) {
+                alert('Planning component not initialized');
+                return;
+            }
+            
+            const timeline = planningComponent.getTimelineData();
+            if (!timeline || !timeline.jobs || timeline.jobs.length === 0) {
+                // No jobs sequenced, just redirect
+                window.location.href = 'index.php?m=<?php echo urlencode($machine_code); ?>';
+                return;
+            }
+            
+            // Prepare data for API
+            const jobs = timeline.jobs.map((job, index) => ({
+                op_id: job.jobId,
+                sequence: index + 1,
+                start_time: job.startTime,  // Already formatted as YYYY-MM-DD HH:MM:SS
+                end_time: job.endTime,      // Already formatted as YYYY-MM-DD HH:MM:SS
+                setup_time: job.setupTime || 30,
+                prod_time: job.prodTime || job.calcTime || 50,
+                changeover: job.changeoverTime || 15
+            }));
+            
+            // Save to mach_planning table
+            fetch('api/actions/planning.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save_to_mach_planning',
+                    machine_id: <?php echo $machine['mm_id']; ?>,
+                    work_date: '<?php echo $work_date; ?>',
+                    shift: '<?php echo $shift; ?>',
+                    jobs: jobs
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Planning saved to database');
+                    // Also save sequence numbers to operations table
+                    return fetch('api/actions/planning.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'update_sequence',
+                            machine_id: <?php echo $machine['mm_id']; ?>,
+                            jobs: jobs.map(j => ({ job_id: j.op_id, sequence: j.sequence }))
+                        })
+                    });
+                } else {
+                    throw new Error(data.message || 'Failed to save planning');
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Redirect to operator view regardless of sequence update result
+                window.location.href = 'index.php?m=<?php echo urlencode($machine_code); ?>';
+            })
+            .catch(error => {
+                console.error('Error saving planning:', error);
+                // Show error but still allow redirect
+                if (confirm('Error saving planning: ' + error.message + '\n\nContinue to operator view anyway?')) {
+                    window.location.href = 'index.php?m=<?php echo urlencode($machine_code); ?>';
+                }
+            });
         }
         
         // Load sequence from localStorage

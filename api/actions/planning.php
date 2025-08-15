@@ -142,6 +142,75 @@ try {
             }
             break;
             
+        case 'save_to_mach_planning':
+            // Save planning sequence with calculated times to mach_planning table
+            if (!isset($input['machine_id'], $input['work_date'], $input['shift'], $input['jobs'])) {
+                throw new Exception('Missing parameters for save_to_mach_planning');
+            }
+            
+            $db->beginTransaction();
+            
+            try {
+                // First, clear existing planning for this machine/date/shift
+                $db->query("
+                    DELETE FROM mach_planning 
+                    WHERE mp_op_mach = ? AND mp_op_proddate = ? AND mp_op_shift = ?
+                ", [$input['machine_id'], $input['work_date'], $input['shift']]);
+                
+                // Convert shift letter to number if needed (A=1, B=2, C=3)
+                $shift_num = $input['shift'];
+                if (is_string($shift_num)) {
+                    $shift_map = ['A' => 1, 'B' => 2, 'C' => 3];
+                    $shift_num = $shift_map[$shift_num] ?? 1;
+                }
+                
+                // Insert each job with calculated times
+                foreach ($input['jobs'] as $job) {
+                    // Get job details from operations table
+                    $op_data = $db->getRow("
+                        SELECT o.*, wi.im_name as item_code, oh.ob_porefno as po_ref
+                        FROM operations o
+                        LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+                        LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+                        WHERE o.op_id = ?
+                    ", [$job['op_id']]);
+                    
+                    if ($op_data) {
+                        $db->query("
+                            INSERT INTO mach_planning (
+                                mp_op_id, mp_op_mach, mp_op_proddate, mp_op_shift, mp_op_seq,
+                                mp_op_start, mp_op_end, mp_op_lot, mp_op_proditm,
+                                mp_op_pln_prdqty, mp_op_esttime, mp_op_calctime,
+                                mp_op_jcrd, mp_op_status
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ", [
+                            $job['op_id'],
+                            $input['machine_id'],
+                            $input['work_date'],
+                            $shift_num,
+                            $job['sequence'],
+                            $job['start_time'],
+                            $job['end_time'],
+                            $op_data['op_lot'],
+                            $op_data['item_code'],
+                            $op_data['op_pln_prdqty'],
+                            $job['setup_time'] ?? 0,
+                            $job['prod_time'] ?? 0,
+                            $op_data['po_ref'] ?? $op_data['op_lot'],
+                            0 // status: 0=planned
+                        ]);
+                    }
+                }
+                
+                $db->commit();
+                echo json_encode(['success' => true, 'message' => 'Planning saved to database']);
+                
+            } catch (Exception $e) {
+                $db->rollback();
+                throw $e;
+            }
+            break;
+            
         case 'move_job':
             if (!isset($input['planning_id'], $input['direction'])) {
                 throw new Exception('Missing parameters for move_job');

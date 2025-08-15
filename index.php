@@ -419,38 +419,80 @@ if (!$machine && $_SESSION['machine_source'] !== 'url') {
     die("Machine $machine_code not found in database");
 }
 
-// Get jobs for this machine - use op_seq from operations table for sequencing
-// The planning interface saves sequences directly to operations.op_seq
+// Get jobs for this machine - first try mach_planning, then fallback to operations
+// Convert shift letter to number for mach_planning query
+$shift_num = $_SESSION['shift'];
+if (is_string($shift_num)) {
+    $shift_map = ['A' => 1, 'B' => 2, 'C' => 3];
+    $shift_num = $shift_map[$shift_num] ?? 1;
+}
 
-// Now get actual jobs from operations table
-$jobs_query = "
+// First try to get planned jobs from mach_planning
+$planning_query = "
     SELECT 
-        o.op_id,
-        o.op_lot,
+        mp.mp_op_id as op_id,
+        mp.mp_op_lot as op_lot,
+        mp.mp_op_seq as op_seq,
+        mp.mp_op_start as op_pln_stdt,
+        mp.mp_op_end as op_pln_endt,
+        mp.mp_op_esttime as op_setup_time,
+        mp.mp_op_calctime as op_prd_time,
+        mp.mp_op_pln_prdqty as op_pln_prdqty,
+        mp.mp_op_act_prdqty as op_act_prdqty,
+        mp.mp_op_status as op_status,
+        mp.mp_op_proditm as item_code,
+        mp.mp_op_proditm as item_name,
+        mp.mp_op_jcrd as po_ref,
         o.op_obid as op_order,
-        o.op_prod as op_prd,
-        o.op_pln_prdqty,
-        o.op_act_prdqty,
-        o.op_status,
-        o.op_start as op_pln_stdt,
-        o.op_end as op_pln_endt,
-        o.op_stp_time as op_setup_time,
-        o.op_tot_pause as op_prd_time,
         o.op_holdflg,
-        o.op_seq,
-        wi.im_name as item_code,
-        wi.im_name as item_name,
-        oh.ob_porefno as po_ref,
         oh.ob_duedate as due_date
-    FROM operations o
-    LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+    FROM mach_planning mp
+    LEFT JOIN operations o ON mp.mp_op_id = o.op_id
     LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
-    WHERE o.op_mach = ?
-    AND o.op_status NOT IN (10, 11)
-    ORDER BY o.op_start ASC
+    WHERE mp.mp_op_mach = ?
+    AND mp.mp_op_proddate = ?
+    AND mp.mp_op_shift = ?
+    ORDER BY mp.mp_op_seq ASC
 ";
 
-$jobs = $db->getAll($jobs_query, [$machine['mm_id']]);
+$planning_jobs = $db->getAll($planning_query, [$machine['mm_id'], $_SESSION['work_date'], $shift_num]);
+
+if (!empty($planning_jobs)) {
+    // Use planned jobs from mach_planning
+    $jobs = $planning_jobs;
+    error_log("JobCenter: Using " . count($jobs) . " jobs from mach_planning table");
+} else {
+    // Fallback to operations table
+    $jobs_query = "
+        SELECT 
+            o.op_id,
+            o.op_lot,
+            o.op_obid as op_order,
+            o.op_prod as op_prd,
+            o.op_pln_prdqty,
+            o.op_act_prdqty,
+            o.op_status,
+            o.op_start as op_pln_stdt,
+            o.op_end as op_pln_endt,
+            o.op_stp_time as op_setup_time,
+            o.op_tot_pause as op_prd_time,
+            o.op_holdflg,
+            o.op_seq,
+            wi.im_name as item_code,
+            wi.im_name as item_name,
+            oh.ob_porefno as po_ref,
+            oh.ob_duedate as due_date
+        FROM operations o
+        LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+        LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+        WHERE o.op_mach = ?
+        AND o.op_status NOT IN (10, 11)
+        ORDER BY o.op_start ASC
+    ";
+
+    $jobs = $db->getAll($jobs_query, [$machine['mm_id']]);
+    error_log("JobCenter: Using " . count($jobs ?? []) . " jobs from operations table");
+}
 
 // Check if query failed
 if ($jobs === false) {
