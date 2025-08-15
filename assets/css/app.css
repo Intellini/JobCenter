@@ -60,6 +60,12 @@ body {
     margin-bottom: 2rem;
 }
 
+.login-logo {
+    max-width: 150px;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
 .login-header h1 {
     font-size: 2rem;
     color: var(--primary-color);
@@ -228,10 +234,14 @@ body {
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+}
+
+.modal.show {
+    display: flex;
 }
 
 .modal-content {
@@ -281,27 +291,15 @@ body {
     top: 0;
     left: 0;
     right: 0;
-<<<<<<< HEAD
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-}
-
-.modal-overlay.active {
-    display: block;
-}
-
-.modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
+    height: 60px;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: space-between;
-}
-
-.modal-header h2 {
-    margin: 0;
-    color: var(--text-color);
+    padding: 0 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 100;
 }
 
 .modal-close {
@@ -389,17 +387,6 @@ body {
         padding: 0.875rem 1.5rem;
         font-size: 1rem;
     }
-}
-=======
-    height: var(--header-height);
-    background-color: #f8f9fa;
-    color: #333;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 1rem;
-    z-index: 100;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .header-left,
@@ -2256,4 +2243,3 @@ textarea:focus-visible {
         page-break-inside: avoid;
     }
 }
->>>>>>> Initial commit: Job Center simplified tablet interface

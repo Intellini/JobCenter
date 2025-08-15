@@ -52,10 +52,13 @@ $available_jobs = $db->getAll("
         o.op_seq,
         o.op_calctime,
         wi.im_name as item_name,
-        oh.ob_porefno as po_ref
+        oh.ob_porefno as po_ref,
+        js.jc_name as status_name,
+        js.jc_color as status_color
     FROM operations o
     LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
     LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+    LEFT JOIN jc_status js ON o.op_status = js.jc_id
     WHERE (o.op_mach = ? OR o.op_mach IS NULL)
     AND o.op_status < 10
     AND (o.op_seq IS NULL OR o.op_seq = 0)
@@ -163,6 +166,24 @@ $available_jobs = $db->getAll("
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 1rem;
+            min-height: 100px;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
+        
+        #available-jobs.sortable-drag-over {
+            background-color: #f0f9ff;
+            border: 2px dashed #3b82f6;
+        }
+        
+        #available-jobs:empty::after {
+            content: 'Drag jobs here to remove from sequence';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #9ca3af;
+            font-style: italic;
         }
         
         #todays-sequence {
@@ -228,48 +249,53 @@ $available_jobs = $db->getAll("
             z-index: 10;
         }
         
-        /* Changeover time circle - actual element instead of pseudo */
+        /* Changeover time card - small horizontal card between jobs */
         .changeover-time {
-            position: absolute;
-            bottom: -35px;
-            left: 50%;
-            width: 60px;
-            height: 60px;
-            background: var(--warning-color);
+            margin: -0.5rem auto 1rem auto;
+            width: calc(100% - 1rem);
+            height: 28px;
+            background: linear-gradient(90deg, #ff6b35, #f97316);
             color: white;
-            border-radius: 50%;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: 600;
-            transform: translateX(-50%);
-            border: 3px solid white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 6px rgba(249, 115, 22, 0.25);
             z-index: 25;
             cursor: pointer;
             transition: all 0.2s ease;
+            position: relative;
         }
         
         .changeover-time:hover {
-            transform: translateX(-50%) scale(1.1);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            transform: scale(1.02);
+            box-shadow: 0 3px 10px rgba(249, 115, 22, 0.35);
         }
         
         .changeover-time input {
-            width: 40px;
-            background: transparent;
-            border: none;
-            color: white;
+            width: 55px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 3px;
+            color: #f97316;
             text-align: center;
             font-weight: 600;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
+            padding: 2px 4px;
+            margin-right: 3px;
             outline: none;
         }
         
         .changeover-time input:focus {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
+            background: white;
+            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+        }
+        
+        .changeover-time span {
+            color: white;
+            font-size: 0.8rem;
         }
         
         .job-card:hover {
@@ -301,6 +327,17 @@ $available_jobs = $db->getAll("
         
         .job-card.future {
             border-left: 4px solid var(--success-color);
+        }
+        
+        .job-status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            color: white;
         }
         
         .job-lot {
@@ -365,7 +402,7 @@ $available_jobs = $db->getAll("
         .sequence-number {
             position: absolute;
             top: 5px;
-            left: 5px;
+            right: 5px;
             background: var(--primary-color);
             color: white;
             width: 28px;
@@ -386,38 +423,7 @@ $available_jobs = $db->getAll("
             border-left: 4px solid var(--success-color);
         }
         
-        .remove-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #ef4444;
-            color: white;
-            border: 2px solid white;
-            cursor: pointer;
-            font-size: 20px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 30;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-            line-height: 1;
-            padding: 0;
-        }
-        
-        .remove-btn:hover {
-            background: #dc2626;
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-        }
-        
-        .remove-btn:active {
-            transform: scale(0.95);
-        }
+        /* Remove button styles deleted - using drag back to left instead */
         
         .empty-state {
             text-align: center;
@@ -516,12 +522,15 @@ $available_jobs = $db->getAll("
                 gap: 0.75rem;
             }
             
-            /* Responsive adjustments for connectors */
+            /* Responsive adjustments for changeover cards */
             .changeover-time {
-                width: 45px;
-                height: 45px;
-                font-size: 0.65rem;
-                bottom: -25px;
+                height: 24px;
+                font-size: 0.75rem;
+            }
+            
+            .changeover-time input {
+                width: 48px;
+                font-size: 0.75rem;
             }
             
             #todays-sequence .job-card:not(:last-child)::after {
@@ -538,12 +547,15 @@ $available_jobs = $db->getAll("
                 gap: 0.5rem;
             }
             
-            /* Further mobile adjustments for connectors */
+            /* Further mobile adjustments for changeover cards */
             .changeover-time {
-                width: 40px;
-                height: 40px;
-                font-size: 0.6rem;
-                bottom: -22px;
+                height: 22px;
+                font-size: 0.7rem;
+            }
+            
+            .changeover-time input {
+                width: 45px;
+                font-size: 0.7rem;
             }
             
             #todays-sequence .job-card:not(:last-child)::after {
@@ -571,11 +583,12 @@ $available_jobs = $db->getAll("
 <body>
     <div class="planning-container">
         <div class="planning-header">
+            <img src="/common/assets/images/pushkarlogo.png" alt="Pushkar Logo" style="height: 40px; margin-right: 20px;">
             <div class="planning-title">
                 <h1>Planning Interface</h1>
                 <div class="planning-info">
                     Machine: <strong><?php echo htmlspecialchars($machine['mm_name']); ?></strong> |
-                    Date: <strong><?php echo $work_date; ?></strong> |
+                    Date: <strong><?php echo date('d/m/Y', strtotime($work_date)); ?></strong> |
                     Shift: <strong><?php echo $shift; ?></strong>
                 </div>
                 <div class="shift-info">
@@ -585,7 +598,7 @@ $available_jobs = $db->getAll("
                 </div>
             </div>
             <div class="header-actions">
-                <a href="index.php?machine=<?php echo urlencode($machine_code); ?>&date=<?php echo urlencode($work_date); ?>&shift=<?php echo urlencode($shift); ?>" class="btn-operator-view">Exit to Operator View</a>
+                <a href="index.php?m=<?php echo urlencode($machine_code); ?>" class="btn-operator-view">Exit to Operator View</a>
                 <a href="?logout=1" class="btn btn-logout">Logout</a>
             </div>
         </div>
@@ -612,7 +625,15 @@ $available_jobs = $db->getAll("
                                      data-quantity="<?php echo $job['op_pln_prdqty']; ?>"
                                      data-due-date="<?php echo $job['op_date']; ?>"
                                      data-po-ref="<?php echo htmlspecialchars($job['po_ref']); ?>"
-                                     data-calc-time="<?php echo $job['op_calctime'] ?? 50; ?>">
+                                     data-calc-time="<?php echo $job['op_calctime'] ?? 50; ?>"
+                                     data-status="<?php echo $job['op_status']; ?>"
+                                     data-status-name="<?php echo htmlspecialchars($job['status_name']); ?>"
+                                     data-status-color="<?php echo htmlspecialchars($job['status_color']); ?>">
+                                    <?php if ($job['status_name'] && $job['status_color']): ?>
+                                        <div class="job-status-badge" style="background-color: <?php echo htmlspecialchars($job['status_color']); ?>">
+                                            <?php echo htmlspecialchars($job['status_name']); ?>
+                                        </div>
+                                    <?php endif; ?>
                                     <div class="job-lot">Job: <?php echo htmlspecialchars($job['op_lot']); ?></div>
                                     <div class="job-details">
                                         <?php if ($job['item_name']): ?>
@@ -696,18 +717,7 @@ $available_jobs = $db->getAll("
                 PLANNING_CONFIG.changeoverTime = time;
             }
             
-            // Add event delegation for remove buttons
-            document.getElementById('todays-sequence').addEventListener('click', function(e) {
-                if (e.target && e.target.classList.contains('remove-btn')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const jobCard = e.target.closest('.job-card');
-                    if (jobCard) {
-                        console.log('Delete button clicked (delegated) for job:', jobCard.dataset.jobId);
-                        removeFromSequence(jobCard);
-                    }
-                }
-            });
+            // Remove button deleted - using drag back to left instead
             
             initializeDragAndDrop();
             loadSequenceFromStorage();
@@ -725,13 +735,58 @@ $available_jobs = $db->getAll("
                 group: {
                     name: 'jobs',
                     pull: 'clone',
-                    put: false
+                    put: true  // Allow dropping cards back here
                 },
                 sort: false,
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                onMove: function(evt) {
+                    // Add visual feedback when dragging over available jobs
+                    if (evt.to.id === 'available-jobs') {
+                        evt.to.classList.add('sortable-drag-over');
+                    }
+                },
+                onAdd: function(evt) {
+                    // Card was dropped back to available jobs from sequence
+                    const item = evt.item;
+                    
+                    // Remove sequence-specific elements
+                    const seqNum = item.querySelector('.sequence-number');
+                    if (seqNum) seqNum.remove();
+                    // No remove button to clean up
+                    
+                    // Clear sequence in database
+                    fetch('api/actions/planning.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'clear_job_sequence',
+                            job_id: item.dataset.jobId
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateSequenceNumbers();
+                            saveSequenceToStorage();
+                            updateTimeEstimation();
+                            checkEmptyState();
+                            
+                            // Trigger planning component recalculation
+                            if (planningComponent) {
+                                planningComponent.recalculateTimeline();
+                            }
+                        }
+                    });
+                },
                 onEnd: function(evt) {
+                    // Remove visual feedback
+                    availableJobs.classList.remove('sortable-drag-over');
+                    
                     if (evt.to !== evt.from && evt.to.id === 'todays-sequence') {
                         // Remove the original card from available jobs
                         const originalCard = evt.from.querySelector(`[data-job-id="${evt.item.dataset.jobId}"]`);
@@ -826,41 +881,77 @@ $available_jobs = $db->getAll("
             });
         }
         
-        // Update sequence numbers
+        // Update sequence numbers and add changeover cards
         function updateSequenceNumbers() {
             const sequencedJobs = document.querySelectorAll('#todays-sequence .job-card');
+            const todaysSequence = document.getElementById('todays-sequence');
             
             // First, remove all existing changeover time elements
             document.querySelectorAll('.changeover-time').forEach(el => el.remove());
             
+            // Get stored individual changeover times
+            const storedTimes = JSON.parse(localStorage.getItem('changeover_times') || '{}');
+            
             sequencedJobs.forEach((job, index) => {
-                // Remove existing sequence number and remove button
+                // Remove existing sequence number
                 const existingNumber = job.querySelector('.sequence-number');
                 if (existingNumber) {
                     existingNumber.remove();
                 }
-                const existingRemove = job.querySelector('.remove-btn');
-                if (existingRemove) {
-                    existingRemove.remove();
-                }
-                
-                // Add new sequence number
+                // Add new sequence number (on the right)
                 const sequenceNumber = document.createElement('div');
                 sequenceNumber.className = 'sequence-number';
                 sequenceNumber.textContent = index + 1;
                 job.appendChild(sequenceNumber);
                 
-                // Add remove button
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-btn';
-                removeBtn.innerHTML = '×';
-                removeBtn.title = 'Remove from sequence';
-                
-                // Event handling is done via delegation in DOMContentLoaded
-                
-                job.appendChild(removeBtn);
-                
-                // Changeover elements will be added separately, not to job cards
+                // Add changeover time card after each job (except the last)
+                if (index < sequencedJobs.length - 1) {
+                    const changeoverCard = document.createElement('div');
+                    changeoverCard.className = 'changeover-time';
+                    changeoverCard.dataset.index = index;
+                    
+                    // Get stored time or use default
+                    const changeoverTime = storedTimes[`${index}`] || PLANNING_CONFIG.changeoverTime;
+                    
+                    changeoverCard.innerHTML = `
+                        <input type="number" value="${changeoverTime}" min="0" max="999" />
+                        <span>min changeover</span>
+                    `;
+                    
+                    // Insert after the current job card
+                    job.insertAdjacentElement('afterend', changeoverCard);
+                    
+                    // Add event listener for editing
+                    const input = changeoverCard.querySelector('input');
+                    input.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        this.select();
+                    });
+                    
+                    input.addEventListener('change', function(e) {
+                        const newValue = parseInt(this.value) || 0;
+                        const index = changeoverCard.dataset.index;
+                        
+                        // Store individual changeover time
+                        const times = JSON.parse(localStorage.getItem('changeover_times') || '{}');
+                        times[index] = newValue;
+                        localStorage.setItem('changeover_times', JSON.stringify(times));
+                        
+                        // Recalculate timeline
+                        updateTimeEstimation();
+                        
+                        // Trigger planning component recalculation
+                        if (planningComponent) {
+                            planningComponent.recalculateTimeline();
+                        }
+                    });
+                    
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            this.blur();
+                        }
+                    });
+                }
             });
         }
         
@@ -890,8 +981,7 @@ $available_jobs = $db->getAll("
                     // Remove sequence-specific elements
                     const seqNum = jobCard.querySelector('.sequence-number');
                     if (seqNum) seqNum.remove();
-                    const removeBtn = jobCard.querySelector('.remove-btn');
-                    if (removeBtn) removeBtn.remove();
+                    // No remove button to clean up
                     
                     // Move the card
                     availableJobs.appendChild(jobCard);

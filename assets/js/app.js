@@ -1,5 +1,4 @@
 /**
-<<<<<<< HEAD
  * JobCenter Application JavaScript
  * Core functionality for UI interactions and API communication
  */
@@ -204,305 +203,10 @@ const JobCenter = {
         }
     },
     
-=======
- * Job Center - Main Application JavaScript
- * Handles all operator interface interactions, API communication, and offline functionality
- */
-
-// Application configuration
-const JobCenter = {
-    config: {
-        apiUrl: '/jc/api/',
-        refreshInterval: 30000, // 30 seconds for QC hold check
-        offlineQueueKey: 'jc_offline_queue',
-        maxRetries: 3,
-        retryDelay: 1000
-    },
-    
-    // Application state
-    state: {
-        isOnline: navigator.onLine,
-        currentJobId: null,
-        offlineQueue: [],
-        activeModal: null,
-        refreshTimer: null,
-        qcHoldCheck: null
-    },
-
-    /**
-     * Initialize the application
-     */
-    init() {
-        console.log('JobCenter: Initializing application...');
-        
-        // Load offline queue from localStorage
-        this.loadOfflineQueue();
-        
-        // Setup event listeners
-        this.setupEventListeners();
-        
-        // Setup network monitoring
-        this.setupNetworkMonitoring();
-        
-        // Setup auto-refresh for QC hold status
-        this.setupAutoRefresh();
-        
-        // Process any queued offline actions
-        this.processOfflineQueue();
-        
-        console.log('JobCenter: Application initialized');
-    },
-
-    /**
-     * Setup all event listeners
-     */
-    setupEventListeners() {
-        // Modal functionality
-        this.setupModalHandlers();
-        
-        // Form submissions
-        this.setupFormHandlers();
-        
-        // Button click handlers
-        this.setupButtonHandlers();
-        
-        // Keyboard shortcuts
-        this.setupKeyboardHandlers();
-        
-        // Touch/click feedback
-        this.setupTouchFeedback();
-    },
-
-    /**
-     * Setup modal management system
-     */
-    setupModalHandlers() {
-        // Close modal overlay click
-        const overlay = document.getElementById('modalOverlay');
-        if (overlay) {
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    this.closeModal();
-                }
-            });
-        }
-
-        // Close modal buttons
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-close')) {
-                this.closeModal();
-            }
-        });
-    },
-
-    /**
-     * Setup form submission handlers
-     */
-    setupFormHandlers() {
-        const forms = [
-            'setupForm', 'fpqcForm', 'pauseForm', 'resumeForm', 
-            'completeForm', 'breakdownForm', 'qccheckForm', 
-            'testForm', 'alertForm', 'contactForm'
-        ];
-
-        forms.forEach(formId => {
-            const form = document.getElementById(formId);
-            if (form) {
-                form.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const action = formId.replace('Form', '');
-                    this.handleFormSubmit(action, new FormData(form));
-                });
-            }
-        });
-
-        // Special handlers for dynamic forms
-        this.setupCompletionFormHandlers();
-    },
-
-    /**
-     * Setup button click handlers for all 12 operator buttons
-     */
-    setupButtonHandlers() {
-        // Primary action buttons
-        const buttonActions = {
-            'btn-setup': 'setup',
-            'btn-fpqc': 'fpqc', 
-            'btn-pause': 'pause',
-            'btn-resume': 'resume',
-            'btn-complete': 'complete',
-            'btn-breakdown': 'breakdown'
-        };
-
-        Object.entries(buttonActions).forEach(([className, action]) => {
-            const buttons = document.querySelectorAll(`.${className}`);
-            buttons.forEach(button => {
-                button.addEventListener('click', () => {
-                    if (!button.disabled) {
-                        this.showModal(action);
-                    }
-                });
-            });
-        });
-
-        // Secondary action buttons
-        const secondaryActions = {
-            'drawing': this.showDrawing,
-            'chart': this.showControlChart,
-            'contact': () => this.showModal('contact'),
-            'qccheck': () => this.showModal('qccheck'),
-            'test': () => this.showModal('test'),
-            'alert': () => this.showModal('alert'),
-            'lock': this.lockScreen
-        };
-
-        Object.entries(secondaryActions).forEach(([action, handler]) => {
-            const buttons = document.querySelectorAll(`[onclick*="${action}"]`);
-            buttons.forEach(button => {
-                // Remove inline onclick and add proper event listener
-                button.removeAttribute('onclick');
-                button.addEventListener('click', () => {
-                    if (!button.disabled) {
-                        if (typeof handler === 'string') {
-                            this.showModal(handler);
-                        } else {
-                            handler.call(this);
-                        }
-                    }
-                });
-            });
-        });
-    },
-
-    /**
-     * Setup keyboard shortcuts and accessibility
-     */
-    setupKeyboardHandlers() {
-        document.addEventListener('keydown', (e) => {
-            // Close modal on Escape
-            if (e.key === 'Escape' && this.state.activeModal) {
-                this.closeModal();
-            }
-            
-            // Quick actions with Alt + number
-            if (e.altKey && !isNaN(e.key)) {
-                e.preventDefault();
-                this.handleQuickAction(parseInt(e.key));
-            }
-        });
-    },
-
-    /**
-     * Setup touch feedback for better UX
-     */
-    setupTouchFeedback() {
-        // Add touch feedback to all buttons
-        const buttons = document.querySelectorAll('button, .action-btn, .action-btn-small');
-        buttons.forEach(button => {
-            button.addEventListener('touchstart', () => {
-                button.classList.add('touch-active');
-            });
-            
-            button.addEventListener('touchend', () => {
-                setTimeout(() => {
-                    button.classList.remove('touch-active');
-                }, 150);
-            });
-        });
-    },
-
-    /**
-     * Setup network monitoring for offline functionality
-     */
-    setupNetworkMonitoring() {
-        window.addEventListener('online', () => {
-            console.log('JobCenter: Network online');
-            this.state.isOnline = true;
-            this.showNotification('Connection restored', 'success');
-            this.processOfflineQueue();
-        });
-
-        window.addEventListener('offline', () => {
-            console.log('JobCenter: Network offline');
-            this.state.isOnline = false;
-            this.showNotification('Working offline - actions will be queued', 'warning');
-        });
-    },
-
-    /**
-     * Setup auto-refresh functionality for QC hold status
-     */
-    setupAutoRefresh() {
-        // Check if we're on QC hold
-        const isQcHold = document.body.classList.contains('qc-hold');
-        
-        if (isQcHold) {
-            // Auto-refresh every 30 seconds when on QC hold
-            this.state.qcHoldCheck = setInterval(() => {
-                this.checkQcHoldStatus();
-            }, this.config.refreshInterval);
-        }
-
-        // General status refresh every 60 seconds
-        this.state.refreshTimer = setInterval(() => {
-            this.refreshJobStatus();
-        }, 60000);
-    },
-
-    /**
-     * Setup specific handlers for completion form
-     */
-    setupCompletionFormHandlers() {
-        const finalQtyInput = document.getElementById('final_qty');
-        if (finalQtyInput) {
-            finalQtyInput.addEventListener('input', () => {
-                this.updateCompletionSummary();
-            });
-        }
-    },
-
-    /**
-     * Show modal with proper management
-     */
-    showModal(action) {
-        console.log(`JobCenter: Opening modal for action: ${action}`);
-        
-        const overlay = document.getElementById('modalOverlay');
-        const modal = document.getElementById(action + 'Modal');
-        
-        if (!modal) {
-            console.error('Modal not found for action:', action);
-            this.showNotification('Modal not found', 'error');
-            return;
-        }
-
-        // Close any existing modal first
-        this.closeModal();
-
-        // Show new modal
-        overlay.classList.add('active');
-        modal.classList.add('active');
-        this.state.activeModal = action;
-
-        // Focus first input for accessibility
-        const firstInput = modal.querySelector('input:not([type="hidden"]), select, textarea');
-        if (firstInput) {
-            setTimeout(() => firstInput.focus(), 100);
-        }
-
-        // Initialize modal-specific functionality
-        this.initializeModalFeatures(action, modal);
-    },
-
-    /**
-     * Close active modal
-     */
->>>>>>> Initial commit: Job Center simplified tablet interface
     closeModal() {
         const overlay = document.getElementById('modalOverlay');
         const modals = document.querySelectorAll('.modal');
         
-<<<<<<< HEAD
         if (overlay) overlay.classList.remove('active');
         modals.forEach(modal => modal.classList.remove('active'));
         
@@ -626,10 +330,51 @@ const JobCenter = {
         existing.forEach(n => n.remove());
         
         // Create notification element
-=======
-        overlay.classList.remove('active');
-        modals.forEach(modal => modal.classList.remove('active'));
-        this.state.activeModal = null;
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        // Style the notification
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '1rem 1.5rem',
+            borderRadius: '8px',
+            color: 'white',
+            fontWeight: '600',
+            zIndex: '2000',
+            transform: 'translateX(400px)',
+            transition: 'transform 0.3s ease',
+            maxWidth: '300px',
+            wordWrap: 'break-word'
+        });
+        
+        // Set background color based on type
+        const colors = {
+            success: '#10b981',
+            error: '#ef4444',
+            warning: '#f59e0b',
+            info: '#3b82f6'
+        };
+        notification.style.backgroundColor = colors[type] || colors.info;
+        
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => {
+            notification.style.transform = 'translateX(0)';
+        }, 100);
+        
+        // Auto remove after delay
+        setTimeout(() => {
+            notification.style.transform = 'translateX(400px)';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, type === 'error' ? 5000 : 3000);
     },
 
     /**
@@ -1125,16 +870,12 @@ const JobCenter = {
         // Remove existing notifications of same type
         document.querySelectorAll(`.notification-${type}`).forEach(n => n.remove());
         
->>>>>>> Initial commit: Job Center simplified tablet interface
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.textContent = message;
         
-<<<<<<< HEAD
         // Style the notification
-=======
         // Apply styles
->>>>>>> Initial commit: Job Center simplified tablet interface
         Object.assign(notification.style, {
             position: 'fixed',
             top: '20px',
@@ -1152,36 +893,26 @@ const JobCenter = {
         
         // Set background color based on type
         const colors = {
-<<<<<<< HEAD
             success: '#10b981',
             error: '#ef4444',
             warning: '#f59e0b',
             info: '#3b82f6'
-=======
-            success: '#28a745',
-            error: '#dc3545', 
-            warning: '#ffc107',
-            info: '#007bff'
->>>>>>> Initial commit: Job Center simplified tablet interface
         };
         notification.style.backgroundColor = colors[type] || colors.info;
         
         document.body.appendChild(notification);
         
         // Animate in
-<<<<<<< HEAD
         setTimeout(() => {
             notification.style.transform = 'translateX(0)';
         }, 100);
         
         // Remove after delay
-=======
         requestAnimationFrame(() => {
             notification.style.transform = 'translateX(0)';
         });
         
         // Auto remove
->>>>>>> Initial commit: Job Center simplified tablet interface
         setTimeout(() => {
             notification.style.transform = 'translateX(400px)';
             setTimeout(() => {
@@ -1189,7 +920,6 @@ const JobCenter = {
                     notification.parentNode.removeChild(notification);
                 }
             }, 300);
-<<<<<<< HEAD
         }, type === 'error' ? 5000 : 3000);
     },
     
@@ -1220,69 +950,15 @@ window.showModal = (modalId) => JobCenter.showModal(modalId);
 window.closeModal = () => JobCenter.closeModal();
 window.showNotification = (message, type) => JobCenter.showNotification(message, type);
 
-// Initialize when DOM is ready
-=======
-        }, duration);
-    },
-
-    /**
-     * Utility functions
-     */
-    getCurrentJobId() {
-        // Extract job ID from URL or page context
-        const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('id') || this.state.currentJobId;
-    },
-
-    formDataToObject(formData) {
-        const obj = {};
-        for (let [key, value] of formData.entries()) {
-            obj[key] = value;
-        }
-        return obj;
-    },
-
-    objectToFormData(obj) {
-        const formData = new FormData();
-        for (let [key, value] of Object.entries(obj)) {
-            formData.append(key, value);
-        }
-        return formData;
-    },
-
-    /**
-     * Error handling and logging
-     */
-    handleError(error, context = '') {
-        console.error(`JobCenter Error ${context}:`, error);
-        this.showNotification(`Error: ${error.message}`, 'error');
-    },
-
-    /**
-     * Cleanup on page unload
-     */
-    cleanup() {
-        if (this.state.refreshTimer) {
-            clearInterval(this.state.refreshTimer);
-        }
-        if (this.state.qcHoldCheck) {
-            clearInterval(this.state.qcHoldCheck);
-        }
-    }
-};
-
 // Initialize application when DOM is ready
->>>>>>> Initial commit: Job Center simplified tablet interface
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => JobCenter.init());
 } else {
     JobCenter.init();
 }
 
-<<<<<<< HEAD
 // Export for use in other scripts
 window.JobCenter = JobCenter;
-=======
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => JobCenter.cleanup());
 
@@ -1305,4 +981,3 @@ if ('serviceWorker' in navigator) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = JobCenter;
 }
->>>>>>> Initial commit: Job Center simplified tablet interface

@@ -62,8 +62,6 @@ try {
             }
             break;
             
-<<<<<<< HEAD
-=======
         case 'remove_job':
             if (!isset($input['planning_id'])) {
                 throw new Exception('Missing planning_id for remove_job');
@@ -109,7 +107,6 @@ try {
             }
             break;
             
->>>>>>> Initial commit: Job Center simplified tablet interface
         case 'update_sequence':
             if (!isset($input['machine_id'], $input['date'], $input['shift'], $input['sequence'])) {
                 throw new Exception('Missing required parameters for update_sequence');
@@ -145,8 +142,6 @@ try {
             }
             break;
             
-<<<<<<< HEAD
-=======
         case 'move_job':
             if (!isset($input['planning_id'], $input['direction'])) {
                 throw new Exception('Missing parameters for move_job');
@@ -201,7 +196,6 @@ try {
             }
             break;
             
->>>>>>> Initial commit: Job Center simplified tablet interface
         case 'clear_job_sequence':
             if (!isset($input['job_id'])) {
                 throw new Exception('Missing job_id for clear_job_sequence');

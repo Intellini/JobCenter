@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Job Center - <?php echo $machine_code; ?></title>
-    <link rel="stylesheet" href="assets/css/app.css">
+    <title>Job Center - <?php echo $machine_code ?? 'Unknown'; ?></title>
+    <link rel="stylesheet" href="assets/css/app.css?v=<?php echo time(); ?>">
     <meta http-equiv="refresh" content="60"> <!-- Auto refresh every minute -->
 </head>
 <body class="timeline-page">
@@ -12,7 +12,7 @@
     <header class="main-header">
         <div class="header-left">
             <img src="/common/assets/images/pushkarlogo.png" alt="Pushkar Logo" class="header-logo">
-            <span class="machine-name"><?php echo $machine['mm_name']; ?></span>
+            <span class="machine-name"><?php echo isset($machine['mm_name']) ? $machine['mm_name'] : 'Machine Not Found'; ?></span>
         </div>
         <div class="header-center">
             <span class="operator-name">Op: <?php echo $_SESSION['operator_name']; ?></span>
@@ -65,7 +65,7 @@
             <div class="jobs-list-column">
                 <div class="jobs-list-header">
                     <h3>Jobs for Today</h3>
-                    <span class="job-count" id="job-count">0 jobs</span>
+                    <span class="job-count" id="job-count"><?php echo count($jobs ?? []); ?> jobs</span>
                 </div>
                 <div class="jobs-list-content" id="jobs-list-content">
                     <!-- Jobs list will be populated here -->
@@ -191,6 +191,16 @@
                     <div class="timeline-scroll-container">
                         <div class="jobs-timeline" style="min-height: <?php echo max(400, ($max_rows * 145) + 40); ?>px; width: 2400px;"> <!-- 24 hours * 100px per hour -->
             <?php
+            // Debug: Log job count
+            error_log("Timeline view - Jobs array count: " . count($jobs ?? []));
+            error_log("Timeline view - Jobs type: " . gettype($jobs));
+            error_log("Timeline view - First job: " . json_encode($jobs[0] ?? 'empty'));
+            
+            // Force display a test message if we have jobs but they're not showing
+            if (!empty($jobs) && is_array($jobs) && count($jobs) > 0) {
+                echo "<!-- DEBUG: Found " . count($jobs) . " jobs to display -->";
+            }
+            
             $current_job_found = false;
             $current_job_index = -1;
             if (!empty($jobs) && is_array($jobs)):
@@ -297,13 +307,13 @@
     </main>
 
     <!-- JavaScript -->
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
     <script>
         // Check localStorage for sequenced jobs
-        const machineId = <?php echo $machine['mm_id']; ?>;
+        const machineId = <?php echo isset($machine['mm_id']) ? $machine['mm_id'] : 'null'; ?>;
         const workDate = '<?php echo $_SESSION['work_date']; ?>';
         const shift = '<?php echo $_SESSION['shift']; ?>';
-        const localStorageKey = `machine_${machineId}_${workDate}_${shift}`;
+        const localStorageKey = `planning_sequence_${machineId}_${workDate}_${shift}`;
         const localSequence = localStorage.getItem(localStorageKey);
         
         // Parse localStorage data
@@ -311,6 +321,10 @@
         if (localSequence) {
             try {
                 sequenceData = JSON.parse(localSequence);
+                // Planning saves array directly, wrap it for compatibility
+                if (Array.isArray(sequenceData)) {
+                    sequenceData = { jobs: sequenceData };
+                }
             } catch (e) {
                 console.error('Failed to parse localStorage data:', e);
             }
@@ -319,6 +333,11 @@
         // Check if we have jobs to display
         const hasSequencedJobs = sequenceData && sequenceData.jobs && sequenceData.jobs.length > 0;
         const hasServerJobs = <?php echo (!empty($jobs) && is_array($jobs) && count($jobs) > 0) ? 'true' : 'false'; ?>;
+        
+        console.log('Jobs from server:', <?php echo json_encode(count($jobs ?? [])); ?>);
+        console.log('Has sequenced jobs:', hasSequencedJobs);
+        console.log('Has server jobs:', hasServerJobs);
+        console.log('Jobs array:', <?php echo json_encode(array_slice($jobs ?? [], 0, 2)); ?>); // Show first 2 jobs for debugging
         
         // Update clock every second
         setInterval(function() {

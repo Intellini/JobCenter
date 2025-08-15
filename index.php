@@ -8,6 +8,9 @@ session_start();
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', 1);
 
+// Start output buffering to prevent any output before DOCTYPE
+ob_start();
+
 // Handle logout first - before any other processing
 if (isset($_GET['logout']) && $_GET['logout'] == '1') {
     // Clear all session variables
@@ -116,6 +119,9 @@ if (isset($_GET['m']) && !empty($_GET['m'])) {
 $db = Database::getInstance();
 $conn = $db->getConnection();
 
+// Ensure debug is off
+$conn->debug = false;
+
 // Check if operator is logged in - enhanced session validation
 // Force login if requested
 $logged_in = isset($_SESSION['operator_id']) && 
@@ -209,6 +215,7 @@ if (!$logged_in) {
 <body class="login-page">
     <div class="login-container">
         <div class="login-header">
+            <img src="assets/images/pushkarlogo.png" alt="Pushkar Logo" class="login-logo">
             <h1>Job Center</h1>
             <h2><?php echo htmlspecialchars($machine_full_name); ?></h2>
         </div>
@@ -219,7 +226,6 @@ if (!$logged_in) {
             <div class="form-group">
                 <label for="operator_name">Operator / ऑपरेटर</label>
                 <input type="text" name="operator_name" id="operator_name" placeholder="Enter your name" required>
-                <small class="form-tip">Type SUPERVISOR for planning mode</small>
             </div>
             
             <?php if ($login_error): ?>
@@ -245,7 +251,6 @@ if (!$logged_in) {
                        title="Please enter date in DD/MM/YYYY format"
                        value="<?php echo date('d/m/Y'); ?>" 
                        required>
-                <small class="form-tip">Format: DD/MM/YYYY</small>
             </div>
             
             <button type="submit" class="btn btn-primary btn-large">
@@ -255,7 +260,7 @@ if (!$logged_in) {
     </div>
     
     <!-- PIN Dialog Modal -->
-    <div id="pinModal" class="modal" style="display: none;">
+    <div id="pinModal" class="modal">
         <div class="modal-content">
             <h3>Supervisor Authentication</h3>
             <p>Please enter supervisor PIN:</p>
@@ -268,30 +273,31 @@ if (!$logged_in) {
     </div>
     
     <script>
-        let pendingFormData = null;
-        
-        // Handle form submission
-        document.querySelector('.login-form').addEventListener('submit', function(e) {
-            const operatorName = document.getElementById('operator_name').value.trim();
+        document.addEventListener('DOMContentLoaded', function() {
+            let pendingFormData = null;
             
-            if (operatorName.toUpperCase() === 'SUPERVISOR') {
-                e.preventDefault();
+            // Handle form submission
+            document.querySelector('.login-form').addEventListener('submit', function(e) {
+                const operatorName = document.getElementById('operator_name').value.trim();
                 
-                // Store form data
-                pendingFormData = new FormData(this);
-                
-                // Show PIN dialog
-                document.getElementById('pinModal').style.display = 'block';
-                document.getElementById('supervisorPin').focus();
-            }
-            // For regular operators, let form submit normally
-        });
-        
-        // Handle PIN confirmation
-        document.getElementById('confirmPin').addEventListener('click', function() {
-            const pin = document.getElementById('supervisorPin').value;
+                if (operatorName.toUpperCase() === 'SUPERVISOR') {
+                    e.preventDefault();
+                    
+                    // Store form data
+                    pendingFormData = new FormData(this);
+                    
+                    // Show PIN dialog
+                    document.getElementById('pinModal').classList.add('show');
+                    document.getElementById('supervisorPin').focus();
+                }
+                // For regular operators, let form submit normally
+            });
             
-            if (pin) {
+            // Handle PIN confirmation
+            document.getElementById('confirmPin').addEventListener('click', function() {
+                const pin = document.getElementById('supervisorPin').value;
+                
+                if (pin) {
                 // Add PIN to form data and submit
                 pendingFormData.append('supervisor_pin', pin);
                 
@@ -315,30 +321,30 @@ if (!$logged_in) {
             }
         });
         
-        // Handle PIN dialog cancel
-        document.getElementById('cancelPin').addEventListener('click', function() {
-            document.getElementById('pinModal').style.display = 'none';
+            // Handle PIN dialog cancel
+            document.getElementById('cancelPin').addEventListener('click', function() {
+            document.getElementById('pinModal').classList.remove('show');
             document.getElementById('supervisorPin').value = '';
             pendingFormData = null;
         });
         
-        // Handle Enter key in PIN input
-        document.getElementById('supervisorPin').addEventListener('keypress', function(e) {
+            // Handle Enter key in PIN input
+            document.getElementById('supervisorPin').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 document.getElementById('confirmPin').click();
             }
         });
         
-        // Close modal when clicking outside
-        document.getElementById('pinModal').addEventListener('click', function(e) {
+            // Close modal when clicking outside
+            document.getElementById('pinModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 document.getElementById('cancelPin').click();
             }
         });
         
-        // Date input formatting and validation
-        const dateInput = document.getElementById('work_date');
-        if (dateInput) {
+            // Date input formatting and validation
+            const dateInput = document.getElementById('work_date');
+            if (dateInput) {
             // Format input as user types
             dateInput.addEventListener('input', function(e) {
                 let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
@@ -367,6 +373,7 @@ if (!$logged_in) {
                 }
             });
         }
+        }); // End of DOMContentLoaded
     </script>
 </body>
 </html>
@@ -412,29 +419,8 @@ if (!$machine && $_SESSION['machine_source'] !== 'url') {
     die("Machine $machine_code not found in database");
 }
 
-// Get jobs for this machine - use mach_planning for sequencing if available
-// First, try to get jobs from mach_planning for proper sequencing
-$planning_jobs = $db->getAll("
-    SELECT 
-        mp.mp_op_id as planning_id,
-        mp.mp_op_lot as lot,
-        mp.mp_op_seq as sequence_order,
-        mp.mp_op_start as planned_start,
-        mp.mp_op_end as planned_end
-    FROM mach_planning mp
-    WHERE mp.mp_op_mach = ?
-    AND mp.mp_op_date = ?
-    AND mp.mp_op_shift = ?
-    ORDER BY mp.mp_op_seq ASC
-", [$machine['mm_id'], $_SESSION['work_date'], (int)ord($_SESSION['shift']) - ord('A') + 1]);
-
-// Build a map of lot numbers to sequence
-$sequence_map = [];
-if (is_array($planning_jobs)) {
-    foreach ($planning_jobs as $idx => $pj) {
-        $sequence_map[$pj['lot']] = $idx + 1;
-    }
-}
+// Get jobs for this machine - use op_seq from operations table for sequencing
+// The planning interface saves sequences directly to operations.op_seq
 
 // Now get actual jobs from operations table
 $jobs_query = "
@@ -460,28 +446,69 @@ $jobs_query = "
     LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
     LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
     WHERE o.op_mach = ?
-    AND o.op_status NOT IN (10, 11)  -- Not completed
+    AND o.op_status NOT IN (10, 11)
     ORDER BY o.op_start ASC
 ";
 
 $jobs = $db->getAll($jobs_query, [$machine['mm_id']]);
 
-// Apply sequence from mach_planning if available
-if (!empty($sequence_map)) {
-    foreach ($jobs as &$job) {
-        $job['sequence_order'] = isset($sequence_map[$job['op_lot']]) 
-            ? $sequence_map[$job['op_lot']] 
-            : 999;
-    }
-    // Re-sort by sequence
+// Check if query failed
+if ($jobs === false) {
+    $jobs = array(); // Set to empty array if query failed
+    $debug_message = "Query failed! Machine ID = " . $machine['mm_id'];
+    error_log("JobCenter ERROR: Query failed for machine ID " . $machine['mm_id']);
+} else {
+    // Store debug info (but don't display it)
+    $debug_message = "Machine Code = $machine_code, Machine ID = " . $machine['mm_id'] . ", Jobs found = " . count($jobs);
+    
+    // Log to error log for debugging
+    error_log("JobCenter Debug: " . $debug_message);
+    error_log("JobCenter Debug: First job = " . json_encode($jobs[0] ?? 'no jobs'));
+    error_log("JobCenter Debug: Session operator = " . $_SESSION['operator_name']);
+}
+
+// Sort jobs by sequence (op_seq field)
+if (!empty($jobs)) {
     usort($jobs, function($a, $b) {
-        // Active jobs (status 1-9) always come before pending (status 0)
-        if (($a['op_status'] >= 1 && $a['op_status'] <= 9) && $a['op_status'] == 0) return -1;
-        if ($a['op_status'] == 0 && ($b['op_status'] >= 1 && $b['op_status'] <= 9)) return 1;
+        // Jobs with sequence (op_seq > 0) come first
+        if ($a['op_seq'] > 0 && $b['op_seq'] == 0) return -1;
+        if ($a['op_seq'] == 0 && $b['op_seq'] > 0) return 1;
         
-        // Then sort by sequence
-        return $a['sequence_order'] <=> $b['sequence_order'];
+        // If both have sequences, sort by sequence number
+        if ($a['op_seq'] > 0 && $b['op_seq'] > 0) {
+            return $a['op_seq'] <=> $b['op_seq'];
+        }
+        
+        // If neither has sequence, sort by status then start time
+        // Active jobs (status 1-9) come before unassigned (status 0)
+        if ($a['op_status'] > 0 && $b['op_status'] == 0) return -1;
+        if ($a['op_status'] == 0 && $b['op_status'] > 0) return 1;
+        
+        // Then sort by planned start time
+        return strcmp($a['op_pln_stdt'], $b['op_pln_stdt']);
     });
+}
+
+// Clean any accidental output before showing the view
+ob_clean();
+
+// Debug: Ensure variables are available
+error_log("JobCenter: Before view include - jobs count = " . count($jobs ?? []));
+error_log("JobCenter: Machine info = " . json_encode($machine ?? 'no machine'));
+
+// Debug: Check if we have what we need
+if (!isset($machine) || !isset($jobs)) {
+    error_log("JobCenter CRITICAL: Missing required variables for timeline view");
+    error_log("Machine: " . (isset($machine) ? 'SET' : 'NOT SET'));
+    error_log("Jobs: " . (isset($jobs) ? 'SET with ' . count($jobs) . ' items' : 'NOT SET'));
+    
+    // Initialize if missing
+    if (!isset($jobs)) {
+        $jobs = [];
+    }
+    if (!isset($machine)) {
+        $machine = ['mm_id' => 0, 'mm_name' => 'Unknown'];
+    }
 }
 
 // Include the main view

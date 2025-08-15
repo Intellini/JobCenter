@@ -194,14 +194,40 @@ class PlanningComponent {
                 padding: 0.5rem 1rem;
                 border: 1px solid #d1d5db;
                 border-radius: 4px;
-                background: white;
+                background: #f3f4f6;
+                color: #374151;
                 cursor: pointer;
                 font-size: 0.8rem;
+                font-weight: 500;
                 transition: all 0.2s;
             }
             
             .config-actions button:hover {
-                background: #f3f4f6;
+                background: #e5e7eb;
+                border-color: #9ca3af;
+                transform: translateY(-1px);
+            }
+            
+            .config-actions button.btn-secondary:first-child {
+                background: #2563eb;
+                color: white;
+                border-color: #2563eb;
+            }
+            
+            .config-actions button.btn-secondary:first-child:hover {
+                background: #1d4ed8;
+                border-color: #1d4ed8;
+            }
+            
+            .config-actions button.btn-secondary:last-child {
+                background: #6b7280;
+                color: white;
+                border-color: #6b7280;
+            }
+            
+            .config-actions button.btn-secondary:last-child:hover {
+                background: #4b5563;
+                border-color: #4b5563;
             }
             
             .config-status {
@@ -312,6 +338,9 @@ class PlanningComponent {
         let totalTime = 0;
         let totalChangeoverTime = 0;
         const jobs = [];
+        
+        // Get stored individual changeover times
+        const storedTimes = JSON.parse(localStorage.getItem('changeover_times') || '{}');
 
         sequencedJobs.forEach((job, index) => {
             const calcTime = parseInt(job.dataset.calcTime) || this.config.defaultJobTime;
@@ -334,8 +363,10 @@ class PlanningComponent {
 
             // Add changeover time if not the last job
             if (index < sequencedJobs.length - 1) {
-                currentTime += this.config.changeoverTime;
-                totalChangeoverTime += this.config.changeoverTime;
+                // Use individual changeover time if stored, otherwise use default
+                const individualChangeoverTime = storedTimes[`${index}`] || this.config.changeoverTime;
+                currentTime += individualChangeoverTime;
+                totalChangeoverTime += individualChangeoverTime;
             }
         });
 
@@ -369,11 +400,23 @@ class PlanningComponent {
         
         if (!estimationDiv || !timelineDetails) return;
 
-        let timelineHTML = timeline.jobs.map(job => 
-            `<div class="timeline-job">
+        // Get stored individual changeover times for display
+        const storedTimes = JSON.parse(localStorage.getItem('changeover_times') || '{}');
+        
+        let timelineHTML = '';
+        timeline.jobs.forEach((job, index) => {
+            timelineHTML += `<div class="timeline-job">
                 ${job.index}. ${job.lot}: ${job.startTimeFormatted} - ${job.endTimeFormatted} (${job.calcTime}min)
-            </div>`
-        ).join('');
+            </div>`;
+            
+            // Add changeover time display if not the last job
+            if (index < timeline.jobs.length - 1) {
+                const changeoverTime = storedTimes[`${index}`] || this.config.changeoverTime;
+                timelineHTML += `<div style="margin-left: 1rem; color: #f97316; font-size: 0.85rem;">
+                    ↓ ${changeoverTime} min changeover
+                </div>`;
+            }
+        });
 
         const summaryHTML = `
             <div class="timeline-summary">
@@ -383,7 +426,7 @@ class PlanningComponent {
                 </div>
                 <div class="summary-row">
                     <span>Total Changeover Time:</span>
-                    <span><strong>${timeline.totalChangeoverTime} minutes (${this.config.changeoverTime}min × ${timeline.totalJobs - 1} changes)</strong></span>
+                    <span><strong>${timeline.totalChangeoverTime} minutes (${timeline.totalJobs - 1} changes)</strong></span>
                 </div>
                 <div class="summary-row">
                     <span>Total Duration:</span>
@@ -454,22 +497,9 @@ class PlanningComponent {
      * Update changeover time displays in the UI
      */
     updateChangeoverDisplays() {
-        // Update CSS custom property for changeover time circles
-        const style = document.createElement('style');
-        style.textContent = `
-            #todays-sequence .job-card:not(:last-child)::before {
-                content: '${this.config.changeoverTime} min' !important;
-            }
-        `;
-        
-        // Remove old changeover style and add new one
-        const oldStyle = document.getElementById('changeover-time-style');
-        if (oldStyle) oldStyle.remove();
-        
-        style.id = 'changeover-time-style';
-        document.head.appendChild(style);
-
-        console.log('Updated changeover time displays to:', this.config.changeoverTime);
+        // This function intentionally left empty
+        // Changeover times are now displayed between cards, not on cards
+        console.log('Changeover time set to:', this.config.changeoverTime);
     }
 
     /**
