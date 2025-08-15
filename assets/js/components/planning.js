@@ -530,19 +530,75 @@ class PlanningComponent {
      * Show status message in config panel
      */
     showConfigStatus(message, type = 'info') {
-        const statusDiv = document.getElementById('config-status');
-        if (!statusDiv) return;
-
-        statusDiv.textContent = message;
-        statusDiv.className = `config-status ${type}`;
+        // Try to show in a global notification first
+        this.showNotification(message, type);
         
-        // Auto-clear success/info messages
-        if (type === 'success' || type === 'info') {
-            setTimeout(() => {
-                statusDiv.textContent = '';
-                statusDiv.className = 'config-status';
-            }, 3000);
+        // Also update config panel status if it exists
+        const statusDiv = document.getElementById('config-status');
+        if (statusDiv) {
+            statusDiv.textContent = message;
+            statusDiv.className = `config-status ${type}`;
+            
+            // Auto-clear success/info messages
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    statusDiv.textContent = '';
+                    statusDiv.className = 'config-status';
+                }, 3000);
+            }
         }
+    }
+    
+    /**
+     * Show notification at top of page
+     */
+    showNotification(message, type = 'info') {
+        // Remove existing notification if any
+        const existing = document.querySelector('.planning-notification');
+        if (existing) {
+            existing.remove();
+        }
+        
+        // Create new notification
+        const notification = document.createElement('div');
+        notification.className = `planning-notification ${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10000;
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideDown 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        // Add animation style if not exists
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideDown {
+                    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideDown 0.3s ease reverse';
+            setTimeout(() => notification.remove(), 300);
+        }, 4000);
     }
 
     /**
@@ -575,9 +631,16 @@ class PlanningComponent {
             return null;
         }
         
-        const shiftInfo = this.shiftTimes[this.shift];
+        // Get shift and work date from global variables (set by PHP)
+        const shift = typeof SHIFT !== 'undefined' ? SHIFT : 'A';
+        const workDate = typeof WORK_DATE !== 'undefined' ? WORK_DATE : new Date().toISOString().split('T')[0];
+        const shiftTimes = {
+            'A': { start: '06:00', end: '14:00' },
+            'B': { start: '14:00', end: '22:00' },
+            'C': { start: '22:00', end: '06:00' }
+        };
+        const shiftInfo = shiftTimes[shift];
         let currentTime = this.parseTime(shiftInfo.start);
-        const workDate = document.querySelector('[name="work_date"]')?.value || new Date().toISOString().split('T')[0];
         
         const jobs = [];
         
