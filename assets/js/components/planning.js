@@ -13,10 +13,16 @@ class PlanningComponent {
         
         this.state = {
             isRecalculating: false,
-            lastUpdate: null
+            lastUpdate: null,
+            isInitialLoad: true
         };
         
         this.init();
+        
+        // After initialization, set flag to false
+        setTimeout(() => {
+            this.state.isInitialLoad = false;
+        }, 1000);
     }
 
     init() {
@@ -314,7 +320,11 @@ class PlanningComponent {
             this.updateJobStartEndTimes(sequencedJobs, timeline);
             
             this.state.lastUpdate = new Date();
-            this.showConfigStatus(`Timeline updated successfully (${timeline.totalJobs} jobs, ${timeline.totalTime} min)`, 'success');
+            
+            // Only show notification if not initial load
+            if (!this.state.isInitialLoad) {
+                this.showConfigStatus(`Timeline updated successfully (${timeline.totalJobs} jobs, ${timeline.totalTime} min)`, 'success');
+            }
             
             // Trigger custom event for other components
             document.dispatchEvent(new CustomEvent('timelineRecalculated', { 
@@ -530,23 +540,8 @@ class PlanningComponent {
      * Show status message in config panel
      */
     showConfigStatus(message, type = 'info') {
-        // Try to show in a global notification first
+        // Only show in global notification, not in config panel
         this.showNotification(message, type);
-        
-        // Also update config panel status if it exists
-        const statusDiv = document.getElementById('config-status');
-        if (statusDiv) {
-            statusDiv.textContent = message;
-            statusDiv.className = `config-status ${type}`;
-            
-            // Auto-clear success/info messages
-            if (type === 'success' || type === 'info') {
-                setTimeout(() => {
-                    statusDiv.textContent = '';
-                    statusDiv.className = 'config-status';
-                }, 3000);
-            }
-        }
     }
     
     /**
@@ -565,8 +560,7 @@ class PlanningComponent {
         notification.style.cssText = `
             position: fixed;
             top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            right: 20px;
             background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
             color: white;
             padding: 12px 24px;
@@ -575,7 +569,8 @@ class PlanningComponent {
             z-index: 10000;
             font-size: 14px;
             font-weight: 500;
-            animation: slideDown 0.3s ease;
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
         `;
         notification.textContent = message;
         
@@ -584,9 +579,9 @@ class PlanningComponent {
             const style = document.createElement('style');
             style.id = 'notification-styles';
             style.textContent = `
-                @keyframes slideDown {
-                    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
-                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
                 }
             `;
             document.head.appendChild(style);
@@ -596,7 +591,7 @@ class PlanningComponent {
         
         // Auto-remove after 4 seconds
         setTimeout(() => {
-            notification.style.animation = 'slideDown 0.3s ease reverse';
+            notification.style.animation = 'slideInRight 0.3s ease reverse';
             setTimeout(() => notification.remove(), 300);
         }, 4000);
     }
