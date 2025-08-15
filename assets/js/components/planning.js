@@ -62,7 +62,7 @@ class PlanningComponent {
     createConfigInterface() {
         const configPanel = document.createElement('div');
         configPanel.id = 'changeover-config-panel';
-        configPanel.className = 'config-panel';
+        configPanel.className = 'config-panel collapsed';
         configPanel.innerHTML = `
             <div class="config-header">
                 <h3>Planning Configuration</h3>
