@@ -565,6 +565,59 @@ class PlanningComponent {
     getChangeoverTime() {
         return this.config.changeoverTime;
     }
+    
+    /**
+     * Get timeline data with calculated times for saving
+     */
+    getTimelineData() {
+        const sequencedJobs = document.querySelectorAll('#todays-sequence .job-card');
+        if (sequencedJobs.length === 0) {
+            return null;
+        }
+        
+        const shiftInfo = this.shiftTimes[this.shift];
+        let currentTime = this.parseTime(shiftInfo.start);
+        const workDate = document.querySelector('[name="work_date"]')?.value || new Date().toISOString().split('T')[0];
+        
+        const jobs = [];
+        
+        sequencedJobs.forEach((job, index) => {
+            const setupTime = 30; // Default setup time
+            const prodTime = parseInt(job.dataset.calcTime) || 50;
+            const changeoverTime = this.config.changeoverTime;
+            
+            const startTime = new Date(workDate + ' ' + this.formatTime(currentTime));
+            currentTime += setupTime + prodTime;
+            const endTime = new Date(workDate + ' ' + this.formatTime(currentTime));
+            
+            jobs.push({
+                jobId: job.dataset.jobId,
+                lot: job.dataset.lot,
+                item: job.dataset.item,
+                quantity: job.dataset.quantity,
+                setupTime: setupTime,
+                prodTime: prodTime,
+                calcTime: prodTime,
+                changeoverTime: changeoverTime,
+                startTime: startTime.toISOString().slice(0, 19).replace('T', ' '),
+                endTime: endTime.toISOString().slice(0, 19).replace('T', ' '),
+                startTimeFormatted: this.formatTime(currentTime - setupTime - prodTime),
+                endTimeFormatted: this.formatTime(currentTime)
+            });
+            
+            // Add changeover time for next job
+            if (index < sequencedJobs.length - 1) {
+                currentTime += changeoverTime;
+            }
+        });
+        
+        return {
+            jobs: jobs,
+            totalTime: currentTime - this.parseTime(shiftInfo.start),
+            shiftStart: shiftInfo.start,
+            shiftEnd: shiftInfo.end
+        };
+    }
 
     /**
      * Set changeover time programmatically
