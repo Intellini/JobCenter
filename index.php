@@ -445,7 +445,7 @@ $planning_query = "
         mp.mp_op_jcrd as po_ref,
         o.op_obid as op_order,
         o.op_holdflg,
-        oh.ob_duedate as due_date
+        oh.ob_eddt as due_date
     FROM mach_planning mp
     LEFT JOIN operations o ON mp.mp_op_id = o.op_id
     LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
@@ -456,6 +456,14 @@ $planning_query = "
 ";
 
 $planning_jobs = $db->getAll($planning_query, [$machine['mm_id'], $_SESSION['work_date'], $shift_num]);
+
+// Log the query for debugging
+error_log("JobCenter: Checking mach_planning with machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date'] . ", shift=" . $shift_num);
+
+if ($planning_jobs === false) {
+    error_log("JobCenter: mach_planning query failed - using operations table fallback");
+    $planning_jobs = [];
+}
 
 if (!empty($planning_jobs)) {
     // Use planned jobs from mach_planning
@@ -481,7 +489,7 @@ if (!empty($planning_jobs)) {
             wi.im_name as item_code,
             wi.im_name as item_name,
             oh.ob_porefno as po_ref,
-            oh.ob_duedate as due_date
+            oh.ob_eddt as due_date
         FROM operations o
         LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
         LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
@@ -497,8 +505,8 @@ if (!empty($planning_jobs)) {
 // Check if query failed
 if ($jobs === false) {
     $jobs = array(); // Set to empty array if query failed
-    $debug_message = "Query failed! Machine ID = " . $machine['mm_id'];
-    error_log("JobCenter ERROR: Query failed for machine ID " . $machine['mm_id']);
+    $debug_message = "Query failed! Machine ID = " . $machine['mm_id'] . " - Error: " . $db->ErrorMsg();
+    error_log("JobCenter ERROR: Query failed for machine ID " . $machine['mm_id'] . " - " . $db->ErrorMsg());
 } else {
     // Store debug info (but don't display it)
     $debug_message = "Machine Code = $machine_code, Machine ID = " . $machine['mm_id'] . ", Jobs found = " . count($jobs);
