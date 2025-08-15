@@ -176,8 +176,9 @@ try {
                     ", [$job['op_id']]);
                     
                     if ($op_data) {
+                        // Use REPLACE to avoid duplicates
                         $db->query("
-                            INSERT INTO mach_planning (
+                            REPLACE INTO mach_planning (
                                 mp_op_id, mp_op_mach, mp_op_proddate, mp_op_shift, mp_op_seq,
                                 mp_op_start, mp_op_end, mp_op_lot, mp_op_proditm,
                                 mp_op_pln_prdqty, mp_op_esttime, mp_op_calctime,

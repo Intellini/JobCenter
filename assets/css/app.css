@@ -2003,6 +2003,44 @@ textarea:focus-visible {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* Shift-specific styling */
+.job-block.shift-a {
+    border-top: 4px solid #3b82f6; /* Blue for Shift A */
+}
+
+.job-block.shift-b {
+    border-top: 4px solid #10b981; /* Green for Shift B */
+}
+
+.job-block.shift-c {
+    border-top: 4px solid #8b5cf6; /* Purple for Shift C */
+}
+
+/* Shift badges */
+.shift-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.shift-badge.shift-a {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.shift-badge.shift-b {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.shift-badge.shift-c {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
 .job-block:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

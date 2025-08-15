@@ -260,6 +260,14 @@
                 if ($is_next) $job_class .= ' next';
                 if ($is_completed) $job_class .= ' completed';
                 if ($is_on_hold) $job_class .= ' on-hold';
+                
+                // Add shift indicator
+                if (!empty($job['shift'])) {
+                    $shift_letter = is_numeric($job['shift']) ? 
+                        ['', 'A', 'B', 'C'][$job['shift']] ?? '' : 
+                        $job['shift'];
+                    $job_class .= ' shift-' . strtolower($shift_letter);
+                }
             ?>
             <div class="<?php echo $job_class; ?>" 
                  style="left: <?php echo $left_pixels; ?>px; width: <?php echo $width_pixels; ?>px; top: <?php echo ($job['row_index'] * 145); ?>px;"
@@ -274,6 +282,13 @@
                 
                 <div class="job-header">
                     <span class="job-lot"><?php echo !empty($job['po_ref']) ? htmlspecialchars($job['po_ref']) : $job['op_lot']; ?></span>
+                    <?php if (!empty($job['shift'])): 
+                        $shift_letter = is_numeric($job['shift']) ? 
+                            ['', 'A', 'B', 'C'][$job['shift']] ?? '' : 
+                            $job['shift'];
+                    ?>
+                        <span class="shift-badge shift-<?php echo strtolower($shift_letter); ?>">Shift <?php echo $shift_letter; ?></span>
+                    <?php endif; ?>
                     <span class="job-status"><?php echo getStatusLabel($job['op_status']); ?></span>
                 </div>
                 

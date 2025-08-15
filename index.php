@@ -428,8 +428,9 @@ if (is_string($shift_num)) {
 }
 
 // First try to get planned jobs from mach_planning
+// Get ALL jobs for the business date (all shifts)
 $planning_query = "
-    SELECT 
+    SELECT DISTINCT
         mp.mp_op_id as op_id,
         mp.mp_op_lot as op_lot,
         mp.mp_op_seq as op_seq,
@@ -443,6 +444,7 @@ $planning_query = "
         mp.mp_op_proditm as item_code,
         mp.mp_op_proditm as item_name,
         mp.mp_op_jcrd as po_ref,
+        mp.mp_op_shift as shift,
         o.op_obid as op_order,
         o.op_holdflg,
         oh.ob_eddt as due_date
@@ -451,14 +453,13 @@ $planning_query = "
     LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
     WHERE mp.mp_op_mach = ?
     AND mp.mp_op_proddate = ?
-    AND mp.mp_op_shift = ?
-    ORDER BY mp.mp_op_seq ASC
+    ORDER BY mp.mp_op_start ASC, mp.mp_op_seq ASC
 ";
 
-$planning_jobs = $db->getAll($planning_query, [$machine['mm_id'], $_SESSION['work_date'], $shift_num]);
+$planning_jobs = $db->getAll($planning_query, [$machine['mm_id'], $_SESSION['work_date']]);
 
 // Log the query for debugging
-error_log("JobCenter: Checking mach_planning with machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date'] . ", shift=" . $shift_num);
+error_log("JobCenter: Checking mach_planning with machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date'] . " (all shifts)");
 
 if ($planning_jobs === false) {
     error_log("JobCenter: mach_planning query failed - using operations table fallback");
@@ -470,7 +471,7 @@ if (!empty($planning_jobs)) {
     $jobs = $planning_jobs;
     error_log("JobCenter: Using " . count($jobs) . " jobs from mach_planning table");
 } else {
-    // Fallback to operations table
+    // Fallback to operations table - get all active jobs for the machine
     $jobs_query = "
         SELECT 
             o.op_id,
@@ -495,7 +496,7 @@ if (!empty($planning_jobs)) {
         LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
         WHERE o.op_mach = ?
         AND o.op_status NOT IN (10, 11)
-        ORDER BY o.op_start ASC
+        ORDER BY COALESCE(o.op_seq, 999), o.op_start ASC
     ";
 
     $jobs = $db->getAll($jobs_query, [$machine['mm_id']]);
