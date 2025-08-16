@@ -406,8 +406,8 @@ if (is_string($shift_num)) {
     $shift_num = $shift_map[$shift_num] ?? 1;
 }
 
-// First try to get planned jobs from mach_planning
-// Get ALL jobs for the business date (all shifts)
+// Get planned jobs from mach_planning for this specific date and machine
+// Simple query - all complexity is handled in planning interface
 $planning_query = "
     SELECT DISTINCT
         mp.mp_op_id as op_id,
@@ -432,13 +432,13 @@ $planning_query = "
     LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
     WHERE mp.mp_op_mach = ?
     AND mp.mp_op_proddate = ?
-    ORDER BY mp.mp_op_start ASC, mp.mp_op_seq ASC
+    ORDER BY mp.mp_op_seq ASC, mp.mp_op_start ASC
 ";
 
 $planning_jobs = $db->getAll($planning_query, [$machine['mm_id'], $_SESSION['work_date']]);
 
 // Log the query for debugging
-error_log("JobCenter: Checking mach_planning with machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date'] . " (all shifts)");
+error_log("JobCenter: Checking mach_planning with machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date']);
 error_log("JobCenter: mach_planning query returned " . (is_array($planning_jobs) ? count($planning_jobs) : '0') . " jobs");
 
 if ($planning_jobs === false) {

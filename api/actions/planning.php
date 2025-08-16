@@ -292,6 +292,154 @@ try {
             }
             break;
             
+        case 'get_previous_jobs':
+            // Get incomplete jobs from previous date
+            if (!isset($input['machine_id'], $input['current_date'])) {
+                throw new Exception('Missing parameters for get_previous_jobs');
+            }
+            
+            $previous_date = date('Y-m-d', strtotime($input['current_date'] . ' -1 day'));
+            
+            $previous_jobs = $db->getAll("
+                SELECT 
+                    mp.mp_op_id as job_id,
+                    mp.mp_op_lot as lot,
+                    mp.mp_op_seq as sequence,
+                    mp.mp_op_proditm as item_code,
+                    mp.mp_op_pln_prdqty as quantity,
+                    mp.mp_op_start as start_time,
+                    mp.mp_op_end as end_time,
+                    COALESCE(o.op_status, mp.mp_op_status) as status,
+                    wi.im_name as item_name,
+                    oh.ob_porefno as po_ref,
+                    CASE 
+                        WHEN COALESCE(o.op_status, mp.mp_op_status) BETWEEN 3 AND 9 THEN 'started'
+                        WHEN COALESCE(o.op_status, mp.mp_op_status) IN (0,1,2) THEN 'not_started'
+                        ELSE 'other'
+                    END as category
+                FROM mach_planning mp
+                LEFT JOIN operations o ON mp.mp_op_id = o.op_id
+                LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+                LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+                WHERE mp.mp_op_mach = ?
+                AND mp.mp_op_proddate = ?
+                AND COALESCE(o.op_status, mp.mp_op_status) < 10
+                ORDER BY mp.mp_op_seq ASC
+            ", [$input['machine_id'], $previous_date]);
+            
+            echo json_encode([
+                'success' => true,
+                'jobs' => $previous_jobs,
+                'previous_date' => $previous_date
+            ]);
+            break;
+            
+        case 'handle_previous_jobs':
+            // Handle carryover of selected jobs from previous date
+            if (!isset($input['machine_id'], $input['current_date'], $input['selected_jobs'])) {
+                throw new Exception('Missing parameters for handle_previous_jobs');
+            }
+            
+            $db->beginTransaction();
+            
+            try {
+                $previous_date = date('Y-m-d', strtotime($input['current_date'] . ' -1 day'));
+                
+                // Get the next available sequence number for current date
+                $next_seq = $db->getValue("
+                    SELECT COALESCE(MAX(mp_op_seq), 0) + 1
+                    FROM mach_planning
+                    WHERE mp_op_mach = ? AND mp_op_proddate = ?
+                ", [$input['machine_id'], $input['current_date']]);
+                
+                // Process selected jobs for carryover
+                foreach ($input['selected_jobs'] as $job_id) {
+                    // Get job details
+                    $job = $db->getRow("
+                        SELECT * FROM mach_planning
+                        WHERE mp_op_id = ? AND mp_op_mach = ? AND mp_op_proddate = ?
+                    ", [$job_id, $input['machine_id'], $previous_date]);
+                    
+                    if ($job) {
+                        // Calculate new times based on current date
+                        // Keep the same time of day but update the date
+                        $old_start = strtotime($job['mp_op_start']);
+                        $old_end = strtotime($job['mp_op_end']);
+                        $duration = $old_end - $old_start;
+                        
+                        $new_start_time = date('H:i:s', $old_start);
+                        $new_start = $input['current_date'] . ' ' . $new_start_time;
+                        $new_end = date('Y-m-d H:i:s', strtotime($new_start) + $duration);
+                        
+                        // Update the existing record with new date and sequence
+                        $db->query("
+                            UPDATE mach_planning
+                            SET mp_op_proddate = ?,
+                                mp_op_seq = ?,
+                                mp_op_start = ?,
+                                mp_op_end = ?
+                            WHERE mp_op_id = ? AND mp_op_mach = ? AND mp_op_proddate = ?
+                        ", [
+                            $input['current_date'],
+                            $next_seq++,
+                            $new_start,
+                            $new_end,
+                            $job_id,
+                            $input['machine_id'],
+                            $previous_date
+                        ]);
+                    }
+                }
+                
+                // Delete unselected jobs from previous date (release to pool)
+                // Get all job IDs from previous date
+                $all_previous_jobs = $db->getColumn("
+                    SELECT mp_op_id
+                    FROM mach_planning
+                    WHERE mp_op_mach = ? AND mp_op_proddate = ?
+                ", [$input['machine_id'], $previous_date]);
+                
+                $unselected_jobs = array_diff($all_previous_jobs, $input['selected_jobs']);
+                
+                if (!empty($unselected_jobs)) {
+                    // Delete unselected jobs from mach_planning
+                    $placeholders = implode(',', array_fill(0, count($unselected_jobs), '?'));
+                    $params = array_merge(
+                        [$input['machine_id'], $previous_date],
+                        $unselected_jobs
+                    );
+                    
+                    $db->query("
+                        DELETE FROM mach_planning
+                        WHERE mp_op_mach = ? AND mp_op_proddate = ?
+                        AND mp_op_id IN ($placeholders)
+                    ", $params);
+                    
+                    // Also clear sequence from operations table for unselected jobs
+                    foreach ($unselected_jobs as $job_id) {
+                        $db->query("
+                            UPDATE operations 
+                            SET op_seq = NULL
+                            WHERE op_id = ?
+                        ", [$job_id]);
+                    }
+                }
+                
+                $db->commit();
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Jobs carried over successfully',
+                    'carried_over' => count($input['selected_jobs']),
+                    'released' => count($unselected_jobs)
+                ]);
+                
+            } catch (Exception $e) {
+                $db->rollback();
+                throw $e;
+            }
+            break;
+            
         default:
             throw new Exception('Unknown action: ' . $input['action']);
     }

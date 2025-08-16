@@ -251,22 +251,34 @@ Check browser console for:
 
 ### Key Design Decisions
 
-1. **Overlap Handling Strategy**
+1. **Separation of Concerns (August 16, 2025)**
+   - **Timeline (index.php)**: Simple read-only view, queries mach_planning for date/machine only
+   - **Planning (planning.php)**: Handles all complexity including carryover from previous dates
+   - **Rationale**: Clean architecture, operators see simple view, supervisors handle complexity
+   - **Implementation**: All business logic in planning, timeline just displays saved data
+
+2. **Carryover Workflow**
+   - **Detection**: Planning page checks for incomplete jobs from previous date
+   - **Categories**: Started (3-9) vs Not Started (0-2) jobs
+   - **Modal Interface**: Supervisor selects which jobs to carry over
+   - **Processing**: Selected jobs update to current date, unselected release to pool
+
+3. **Overlap Handling Strategy**
    - Decision: Display overlapping jobs on separate rows rather than side-by-side
    - Rationale: Clearer visual separation, accommodates planning errors gracefully
    - Implementation: Row-based layout with 145px vertical spacing
 
-2. **Job Identification**
+4. **Job Identification**
    - Decision: Show PO Reference (ob_porefno) instead of lot number
    - Rationale: More meaningful for shop floor operators
    - Implementation: LEFT JOIN with orders_head table, fallback to lot if no PO ref
 
-3. **Current/Next Job Highlighting**
+5. **Current/Next Job Highlighting**
    - Current Job: Blue background (#eff6ff)
    - Next Job: Red dashed border
    - Logic: First incomplete job is "current", immediate next is "next"
 
-4. **Row Height Calculation**
+6. **Row Height Calculation**
    - Job block height: 120px (CSS variable)
    - Row spacing: 145px (includes 25px gap)
    - Container min-height: Dynamic based on row count

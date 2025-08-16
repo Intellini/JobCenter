@@ -75,6 +75,37 @@ $available_jobs = $db->getAll("
     ORDER BY o.op_date ASC, o.op_seq ASC
 ", [$machine['mm_id']]);
 
+// Check for incomplete jobs from previous date
+$previous_date = date('Y-m-d', strtotime($work_date . ' -1 day'));
+$previous_jobs = $db->getAll("
+    SELECT 
+        mp.*,
+        o.op_lot,
+        o.op_status as current_status,
+        wi.im_name as item_name,
+        oh.ob_porefno as po_ref,
+        CASE 
+            WHEN COALESCE(o.op_status, mp.mp_op_status) BETWEEN 3 AND 9 THEN 'started'
+            WHEN COALESCE(o.op_status, mp.mp_op_status) IN (0,1,2) THEN 'not_started'
+            ELSE 'other'
+        END as job_category
+    FROM mach_planning mp
+    LEFT JOIN operations o ON mp.mp_op_id = o.op_id
+    LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+    LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+    WHERE mp.mp_op_mach = ?
+    AND mp.mp_op_proddate = ?
+    AND COALESCE(o.op_status, mp.mp_op_status) < 10
+    ORDER BY mp.mp_op_seq ASC
+", [$machine['mm_id'], $previous_date]);
+
+// Check if current date already has planning
+$current_planning = $db->getValue("
+    SELECT COUNT(*) 
+    FROM mach_planning 
+    WHERE mp_op_mach = ? AND mp_op_proddate = ?
+", [$machine['mm_id'], $work_date]);
+
 // Get today's sequenced jobs from localStorage (will be handled by JavaScript)
 ?>
 <!DOCTYPE html>
@@ -1334,11 +1365,297 @@ $available_jobs = $db->getAll("
             }
         }
         
+        // Previous Jobs Modal Functions
+        function checkPreviousJobs() {
+            fetch('/jc/api/actions/planning.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'get_previous_jobs',
+                    machine_id: MACHINE_ID,
+                    current_date: WORK_DATE
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.jobs && data.jobs.length > 0) {
+                    showPreviousJobsModal(data.jobs);
+                }
+            })
+            .catch(error => {
+                console.error('Error checking previous jobs:', error);
+            });
+        }
+        
+        function showPreviousJobsModal(jobs) {
+            const startedJobs = jobs.filter(job => job.category === 'started');
+            const notStartedJobs = jobs.filter(job => job.category === 'not_started');
+            
+            // Populate started jobs list
+            const startedList = document.getElementById('startedJobsList');
+            startedList.innerHTML = startedJobs.map(job => `
+                <div class="job-checkbox-item ${job.category === 'started' ? 'selected' : ''}" data-job-id="${job.job_id}">
+                    <input type="checkbox" id="job_${job.job_id}" ${job.category === 'started' ? 'checked' : ''} />
+                    <div class="job-checkbox-details">
+                        <div class="job-checkbox-lot">${job.lot || 'No Lot'}</div>
+                        <div class="job-checkbox-info">
+                            ${job.item_name || job.item_code} - Qty: ${job.quantity}
+                        </div>
+                    </div>
+                    <span class="job-status-badge" style="background: ${getStatusColor(job.status)}; color: white;">
+                        ${getStatusLabel(job.status)}
+                    </span>
+                </div>
+            `).join('');
+            
+            // Populate not started jobs list
+            const notStartedList = document.getElementById('notStartedJobsList');
+            notStartedList.innerHTML = notStartedJobs.map(job => `
+                <div class="job-checkbox-item" data-job-id="${job.job_id}">
+                    <input type="checkbox" id="job_${job.job_id}" />
+                    <div class="job-checkbox-details">
+                        <div class="job-checkbox-lot">${job.lot || 'No Lot'}</div>
+                        <div class="job-checkbox-info">
+                            ${job.item_name || job.item_code} - Qty: ${job.quantity}
+                        </div>
+                    </div>
+                    <span class="job-status-badge" style="background: ${getStatusColor(job.status)}; color: white;">
+                        ${getStatusLabel(job.status)}
+                    </span>
+                </div>
+            `).join('');
+            
+            // Add click handlers for job items
+            document.querySelectorAll('.job-checkbox-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    if (e.target.type !== 'checkbox') {
+                        const checkbox = this.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                        this.classList.toggle('selected', checkbox.checked);
+                    } else {
+                        this.classList.toggle('selected', e.target.checked);
+                    }
+                });
+            });
+            
+            // Show modal
+            document.getElementById('previousJobsModal').style.display = 'flex';
+        }
+        
+        function closePreviousJobsModal() {
+            document.getElementById('previousJobsModal').style.display = 'none';
+        }
+        
+        function selectAllStarted() {
+            document.querySelectorAll('#startedJobsList .job-checkbox-item').forEach(item => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                checkbox.checked = true;
+                item.classList.add('selected');
+            });
+        }
+        
+        function skipPreviousJobs() {
+            closePreviousJobsModal();
+        }
+        
+        function carryOverSelected() {
+            const selectedJobs = [];
+            document.querySelectorAll('.job-checkbox-item input[type="checkbox"]:checked').forEach(checkbox => {
+                const jobId = checkbox.closest('.job-checkbox-item').dataset.jobId;
+                selectedJobs.push(parseInt(jobId));
+            });
+            
+            if (selectedJobs.length === 0) {
+                alert('Please select at least one job to carry over');
+                return;
+            }
+            
+            // Show loading state
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            
+            fetch('/jc/api/actions/planning.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'handle_previous_jobs',
+                    machine_id: MACHINE_ID,
+                    current_date: WORK_DATE,
+                    selected_jobs: selectedJobs
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`Carried over ${data.carried_over} jobs, released ${data.released} jobs`);
+                    // Reload page to show updated planning
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to carry over jobs'));
+                    button.disabled = false;
+                    button.textContent = 'Carry Over Selected';
+                }
+            })
+            .catch(error => {
+                console.error('Error carrying over jobs:', error);
+                alert('Error carrying over jobs. Please try again.');
+                button.disabled = false;
+                button.textContent = 'Carry Over Selected';
+            });
+        }
+        
+        function getStatusColor(status) {
+            const colors = {
+                1: '#6b7280',  // New
+                2: '#8b5cf6',  // Assigned
+                3: '#3b82f6',  // Setup
+                4: '#f59e0b',  // FPQC
+                5: '#10b981',  // In Process
+                6: '#f97316',  // Paused
+                7: '#ef4444',  // Breakdown
+                8: '#ef4444',  // On Hold
+                9: '#a855f7',  // LPQC
+                10: '#16a34a'  // Complete
+            };
+            return colors[status] || '#6b7280';
+        }
+        
+        function getStatusLabel(status) {
+            const labels = {
+                0: 'Planned',
+                1: 'New',
+                2: 'Assigned',
+                3: 'Setup',
+                4: 'FPQC',
+                5: 'In Process',
+                6: 'Paused',
+                7: 'Breakdown',
+                8: 'On Hold',
+                9: 'LPQC',
+                10: 'Complete'
+            };
+            return labels[status] || 'Unknown';
+        }
+        
         // Initial setup
         hideEmptyState();
         if (document.querySelectorAll('#todays-sequence .job-card').length === 0) {
             checkEmptyState();
         }
+        
+        // Check for previous jobs on page load
+        <?php if (!empty($previous_jobs)): ?>
+        setTimeout(() => {
+            checkPreviousJobs();
+        }, 500);
+        <?php endif; ?>
     </script>
+
+    <!-- Previous Jobs Modal -->
+    <div id="previousJobsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                <h3 style="margin: 0; color: #1f2937;">Incomplete Jobs from Previous Date</h3>
+                <button onclick="closePreviousJobsModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 1rem;">
+                <div class="started-jobs" style="margin-bottom: 2rem;">
+                    <h4 style="color: #059669; margin-bottom: 1rem;">✓ Started but Not Complete (Carry Over Recommended)</h4>
+                    <div id="startedJobsList" style="display: grid; gap: 0.5rem;">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="not-started-jobs">
+                    <h4 style="color: #dc2626; margin-bottom: 1rem;">⚠ Not Started (Release to Pool Recommended)</h4>
+                    <div id="notStartedJobsList" style="display: grid; gap: 0.5rem;">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; padding: 1rem; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                <button onclick="selectAllStarted()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Select All Started</button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button onclick="skipPreviousJobs()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Skip All</button>
+                    <button onclick="carryOverSelected()" class="btn btn-primary" style="padding: 0.5rem 1rem; background: #3b82f6; color: white;">Carry Over Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .job-checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .job-checkbox-item:hover {
+            background: #f9fafb;
+        }
+        
+        .job-checkbox-item.selected {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+        
+        .job-checkbox-item input[type="checkbox"] {
+            margin-right: 1rem;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .job-checkbox-details {
+            flex: 1;
+        }
+        
+        .job-checkbox-lot {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+        
+        .job-checkbox-info {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .job-status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: auto;
+        }
+    </style>
 </body>
 </html>
