@@ -284,6 +284,10 @@ class PlanningComponent {
         }
 
         this.config.changeoverTime = value;
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('planning_changeover_time', value);
+        
         this.showConfigStatus('Changeover time updated. Timeline will be recalculated.', 'info');
         
         // Debounce the recalculation to avoid excessive updates
@@ -291,6 +295,7 @@ class PlanningComponent {
         this.recalculateTimer = setTimeout(() => {
             this.recalculateTimeline();
             this.updateChangeoverDisplays();
+            this.updateAllJobCardChangeoverDisplays();
         }, 500);
     }
 
@@ -504,12 +509,39 @@ class PlanningComponent {
     }
 
     /**
+     * Update all job card changeover time displays
+     */
+    updateAllJobCardChangeoverDisplays() {
+        const jobCards = document.querySelectorAll('.job-card');
+        jobCards.forEach(card => {
+            const changeoverDisplay = card.querySelector('.changeover-time');
+            if (changeoverDisplay) {
+                changeoverDisplay.textContent = `+${this.config.changeoverTime}m`;
+            }
+        });
+        
+        // Also update the visual changeover indicators between cards
+        const changeoverIndicators = document.querySelectorAll('.changeover-indicator');
+        changeoverIndicators.forEach(indicator => {
+            const timeSpan = indicator.querySelector('span');
+            if (timeSpan) {
+                timeSpan.textContent = `${this.config.changeoverTime}m changeover`;
+            }
+        });
+    }
+    
+    /**
      * Update changeover time displays in the UI
      */
     updateChangeoverDisplays() {
-        // This function intentionally left empty
-        // Changeover times are now displayed between cards, not on cards
+        // This function updates the changeover indicators between cards
         console.log('Changeover time set to:', this.config.changeoverTime);
+        
+        // Update the config panel input if it exists
+        const changeoverInput = document.getElementById('changeover-time-input');
+        if (changeoverInput && changeoverInput.value != this.config.changeoverTime) {
+            changeoverInput.value = this.config.changeoverTime;
+        }
     }
 
     /**

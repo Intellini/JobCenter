@@ -223,12 +223,14 @@ if (!$logged_in) {
             
             <div class="form-group">
                 <label for="work_date">Date / दिनांक</label>
-                <input type="text" name="work_date" id="work_date" 
-                       placeholder="DD/MM/YYYY" 
-                       pattern="^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}$"
-                       title="Please enter date in DD/MM/YYYY format"
-                       value="<?php echo date('d/m/Y'); ?>" 
-                       required>
+                <input type="date" name="work_date_display" id="work_date_display" 
+                       value="<?php echo date('Y-m-d'); ?>" 
+                       required
+                       style="width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #d1d5db; border-radius: 4px;">
+                <input type="hidden" name="work_date" id="work_date" value="<?php echo date('d/m/Y'); ?>">
+                <div id="holiday-alert" style="display: none; color: #dc2626; margin-top: 0.5rem; font-size: 0.875rem;">
+                    <span>⚠️ This is a holiday/non-working day</span>
+                </div>
             </div>
             
             <button type="submit" class="btn btn-primary btn-large">
@@ -320,37 +322,60 @@ if (!$logged_in) {
             }
         });
         
-            // Date input formatting and validation
-            const dateInput = document.getElementById('work_date');
-            if (dateInput) {
-            // Format input as user types
-            dateInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                
-                if (value.length >= 2) {
-                    value = value.substring(0, 2) + '/' + value.substring(2);
-                }
-                if (value.length >= 5) {
-                    value = value.substring(0, 5) + '/' + value.substring(5, 9);
-                }
-                
-                e.target.value = value;
-            });
+            // Date picker handling
+            const dateDisplay = document.getElementById('work_date_display');
+            const dateHidden = document.getElementById('work_date');
+            const holidayAlert = document.getElementById('holiday-alert');
             
-            // Validate on blur
-            dateInput.addEventListener('blur', function(e) {
-                const value = e.target.value;
-                const pattern = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+            if (dateDisplay && dateHidden) {
+                // Update hidden field with DD/MM/YYYY format when date changes
+                dateDisplay.addEventListener('change', function(e) {
+                    const dateValue = e.target.value; // YYYY-MM-DD format
+                    if (dateValue) {
+                        const parts = dateValue.split('-');
+                        const ddmmyyyy = parts[2] + '/' + parts[1] + '/' + parts[0];
+                        dateHidden.value = ddmmyyyy;
+                        
+                        // Check if date is a holiday
+                        checkHoliday(dateValue);
+                    }
+                });
                 
-                if (value && !pattern.test(value)) {
-                    e.target.setCustomValidity('Please enter a valid date in DD/MM/YYYY format');
-                    e.target.classList.add('error');
-                } else {
-                    e.target.setCustomValidity('');
-                    e.target.classList.remove('error');
+                // Check for holidays
+                function checkHoliday(dateStr) {
+                    // Check if it's a Sunday
+                    const date = new Date(dateStr);
+                    const dayOfWeek = date.getDay();
+                    
+                    if (dayOfWeek === 0) { // Sunday
+                        if (holidayAlert) {
+                            holidayAlert.style.display = 'block';
+                            holidayAlert.innerHTML = '<span>⚠️ Sunday - Weekly holiday</span>';
+                        }
+                    } else {
+                        // Check with server for other holidays
+                        fetch('/jc/api/actions/holiday.php?date=' + dateStr)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.is_holiday && holidayAlert) {
+                                    holidayAlert.style.display = 'block';
+                                    holidayAlert.innerHTML = '<span>⚠️ ' + data.holiday_name + '</span>';
+                                } else if (holidayAlert) {
+                                    holidayAlert.style.display = 'none';
+                                }
+                            })
+                            .catch(error => {
+                                console.log('Holiday check failed:', error);
+                                if (holidayAlert) holidayAlert.style.display = 'none';
+                            });
+                    }
                 }
-            });
-        }
+                
+                // Check initial date
+                if (dateDisplay.value) {
+                    checkHoliday(dateDisplay.value);
+                }
+            }
         }); // End of DOMContentLoaded
     </script>
     <script src="assets/js/session-manager.js?v=<?php echo time(); ?>"></script>

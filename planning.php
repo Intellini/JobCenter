@@ -624,6 +624,15 @@ $current_planning = $db->getValue("
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3>Loading Planning Interface...</h3>
+            <p id="loadingMessage">Fetching jobs and checking previous day status</p>
+        </div>
+    </div>
+    
     <div class="planning-container">
         <div class="planning-header">
             <img src="/common/assets/images/pushkarlogo.png" alt="Pushkar Logo" style="height: 40px; margin-right: 20px;">
@@ -1542,18 +1551,36 @@ $current_planning = $db->getValue("
             return labels[status] || 'Unknown';
         }
         
-        // Initial setup
-        hideEmptyState();
-        if (document.querySelectorAll('#todays-sequence .job-card').length === 0) {
-            checkEmptyState();
+        // Hide loading overlay once everything is loaded
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 300);
+            }
         }
         
-        // Check for previous jobs on page load
-        <?php if (!empty($previous_jobs)): ?>
-        setTimeout(() => {
-            checkPreviousJobs();
-        }, 500);
-        <?php endif; ?>
+        // Initial setup
+        window.addEventListener('DOMContentLoaded', function() {
+            hideEmptyState();
+            if (document.querySelectorAll('#todays-sequence .job-card').length === 0) {
+                checkEmptyState();
+            }
+            
+            // Check for previous jobs on page load
+            <?php if (!empty($previous_jobs)): ?>
+            document.getElementById('loadingMessage').textContent = 'Checking incomplete jobs from previous date...';
+            setTimeout(() => {
+                checkPreviousJobs();
+                hideLoadingOverlay();
+            }, 500);
+            <?php else: ?>
+            // No previous jobs, hide loading immediately
+            setTimeout(hideLoadingOverlay, 300);
+            <?php endif; ?>
+        });
     </script>
 
     <!-- Previous Jobs Modal -->

@@ -159,11 +159,12 @@ try {
             $db->beginTransaction();
             
             try {
-                // First, clear existing planning for this machine/date/shift
+                // First, clear ALL existing planning for this machine/date
+                // Delete all shifts to prevent duplicates when saving
                 $db->query("
                     DELETE FROM mach_planning 
-                    WHERE mp_op_mach = ? AND mp_op_proddate = ? AND mp_op_shift = ?
-                ", [$input['machine_id'], $input['work_date'], $input['shift']]);
+                    WHERE mp_op_mach = ? AND mp_op_proddate = ?
+                ", [$input['machine_id'], $input['work_date']]);
                 
                 // Convert shift letter to number if needed (A=1, B=2, C=3)
                 $shift_num = $input['shift'];
@@ -184,9 +185,9 @@ try {
                     ", [$job['op_id']]);
                     
                     if ($op_data) {
-                        // Use REPLACE to avoid duplicates
+                        // Use INSERT (not REPLACE) since we already deleted all records
                         $db->query("
-                            REPLACE INTO mach_planning (
+                            INSERT INTO mach_planning (
                                 mp_op_id, mp_op_mach, mp_op_proddate, mp_op_shift, mp_op_seq,
                                 mp_op_start, mp_op_end, mp_op_lot, mp_op_proditm,
                                 mp_op_pln_prdqty, mp_op_esttime, mp_op_calctime,
