@@ -1,3 +1,9 @@
+<?php
+// Include date helper at the start of the file
+if (!function_exists('formatDateDisplay')) {
+    require_once dirname(__DIR__) . '/helpers/date_helper.php';
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,7 +23,7 @@
         <div class="header-center">
             <span class="operator-name">Op: <?php echo $_SESSION['operator_name']; ?></span>
             <span class="shift">Shift: <?php echo $_SESSION['shift']; ?></span>
-            <span class="date"><?php echo date('d M Y', strtotime($_SESSION['work_date'])); ?></span>
+            <span class="date"><?php echo formatDateWithMonth($_SESSION['work_date']); ?></span>
         </div>
         <div class="header-right">
             <span class="clock" id="clock"><?php echo date('H:i:s'); ?></span>
@@ -307,7 +313,7 @@
                         <span class="job-quantity">Qty: <?php echo number_format($job['op_pln_prdqty']); ?></span>
                         <?php if (!empty($job['due_date'])): ?>
                             <span class="job-due-date <?php echo getEddClass($job['due_date']); ?>">
-                                Due: <?php echo date('M j', strtotime($job['due_date'])); ?>
+                                Due: <?php echo formatDateWithMonth($job['due_date']); ?>
                             </span>
                         <?php endif; ?>
                     </div>

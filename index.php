@@ -6,6 +6,7 @@
 
 // Include session configuration first
 require_once 'config/session.php';
+require_once 'helpers/date_helper.php';
 
 // Initialize session with security settings
 initializeSession();
@@ -113,10 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $operator_name = trim($_POST['operator_name']);
     
     // Convert DD/MM/YYYY to YYYY-MM-DD for database
-    $work_date = $_POST['work_date'];
-    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $work_date, $matches)) {
-        $work_date = $matches[3] . '-' . $matches[2] . '-' . $matches[1]; // Convert to YYYY-MM-DD
-    }
+    $work_date = formatDateForDB($_POST['work_date']);
     
     // Check if this is a supervisor login
     if (strtoupper($operator_name) === 'SUPERVISOR') {
@@ -223,11 +221,10 @@ if (!$logged_in) {
             
             <div class="form-group">
                 <label for="work_date">Date / दिनांक</label>
-                <input type="date" name="work_date_display" id="work_date_display" 
-                       value="<?php echo date('Y-m-d'); ?>" 
+                <input type="date" name="work_date" id="work_date" 
+                       value="<?php echo getCurrentDateDB(); ?>" 
                        required
                        style="width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #d1d5db; border-radius: 4px;">
-                <input type="hidden" name="work_date" id="work_date" value="<?php echo date('d/m/Y'); ?>">
                 <div id="holiday-alert" style="display: none; color: #dc2626; margin-top: 0.5rem; font-size: 0.875rem;">
                     <span>⚠️ This is a holiday/non-working day</span>
                 </div>
@@ -322,59 +319,53 @@ if (!$logged_in) {
             }
         });
         
-            // Date picker handling
-            const dateDisplay = document.getElementById('work_date_display');
-            const dateHidden = document.getElementById('work_date');
+            // Date input handling
+            const dateInput = document.getElementById('work_date');
             const holidayAlert = document.getElementById('holiday-alert');
             
-            if (dateDisplay && dateHidden) {
-                // Update hidden field with DD/MM/YYYY format when date changes
-                dateDisplay.addEventListener('change', function(e) {
+            // Handle date picker change
+            if (dateInput) {
+                dateInput.addEventListener('change', function(e) {
                     const dateValue = e.target.value; // YYYY-MM-DD format
                     if (dateValue) {
-                        const parts = dateValue.split('-');
-                        const ddmmyyyy = parts[2] + '/' + parts[1] + '/' + parts[0];
-                        dateHidden.value = ddmmyyyy;
-                        
-                        // Check if date is a holiday
                         checkHoliday(dateValue);
                     }
                 });
+            }
+            
+            // Check for holidays
+            function checkHoliday(dateStr) {
+                // dateStr should be in YYYY-MM-DD format
+                const date = new Date(dateStr);
+                const dayOfWeek = date.getDay();
                 
-                // Check for holidays
-                function checkHoliday(dateStr) {
-                    // Check if it's a Sunday
-                    const date = new Date(dateStr);
-                    const dayOfWeek = date.getDay();
-                    
-                    if (dayOfWeek === 0) { // Sunday
-                        if (holidayAlert) {
-                            holidayAlert.style.display = 'block';
-                            holidayAlert.innerHTML = '<span>⚠️ Sunday - Weekly holiday</span>';
-                        }
-                    } else {
-                        // Check with server for other holidays
-                        fetch('/jc/api/actions/holiday.php?date=' + dateStr)
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.is_holiday && holidayAlert) {
-                                    holidayAlert.style.display = 'block';
-                                    holidayAlert.innerHTML = '<span>⚠️ ' + data.holiday_name + '</span>';
-                                } else if (holidayAlert) {
-                                    holidayAlert.style.display = 'none';
-                                }
-                            })
-                            .catch(error => {
-                                console.log('Holiday check failed:', error);
-                                if (holidayAlert) holidayAlert.style.display = 'none';
-                            });
+                if (dayOfWeek === 0) { // Sunday
+                    if (holidayAlert) {
+                        holidayAlert.style.display = 'block';
+                        holidayAlert.innerHTML = '<span>⚠️ Sunday - Weekly holiday</span>';
                     }
+                } else {
+                    // Check with server for other holidays
+                    fetch('/jc/api/actions/holiday.php?date=' + dateStr)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.is_holiday && holidayAlert) {
+                                holidayAlert.style.display = 'block';
+                                holidayAlert.innerHTML = '<span>⚠️ ' + data.holiday_name + '</span>';
+                            } else if (holidayAlert) {
+                                holidayAlert.style.display = 'none';
+                            }
+                        })
+                        .catch(error => {
+                            console.log('Holiday check failed:', error);
+                            if (holidayAlert) holidayAlert.style.display = 'none';
+                        });
                 }
-                
-                // Check initial date
-                if (dateDisplay.value) {
-                    checkHoliday(dateDisplay.value);
-                }
+            }
+            
+            // Check initial date
+            if (dateInput && dateInput.value) {
+                checkHoliday(dateInput.value);
             }
         }); // End of DOMContentLoaded
     </script>

@@ -6,6 +6,7 @@
 
 // Include session configuration
 require_once 'config/session.php';
+require_once 'helpers/date_helper.php';
 
 // Initialize session with security settings
 initializeSession();
@@ -640,7 +641,7 @@ $current_planning = $db->getValue("
                 <h1>Planning Interface</h1>
                 <div class="planning-info">
                     Machine: <strong><?php echo htmlspecialchars($machine['mm_name']); ?></strong> |
-                    Date: <strong><?php echo date('d/m/Y', strtotime($work_date)); ?></strong> |
+                    Date: <strong><?php echo formatDateDisplay($work_date); ?></strong> |
                     Shift: <strong><?php echo $shift; ?></strong>
                 </div>
                 <div class="shift-info">
@@ -653,6 +654,40 @@ $current_planning = $db->getValue("
                 <button onclick="saveAndExitToOperator()" class="btn-operator-view">Exit to Operator View</button>
                 <a href="?logout=1" class="btn btn-logout">Logout</a>
             </div>
+        </div>
+        
+        <!-- Quick filter bar -->
+        <div class="filter-bar" style="
+            background: white;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;">
+            
+            <span style="font-weight: 600; color: #4b5563;">🔍 Quick Find:</span>
+            
+            <input type="text" 
+                   id="filter-item" 
+                   placeholder="Item name..." 
+                   style="flex: 1; max-width: 200px; padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 4px;">
+            
+            <input type="text" 
+                   id="filter-lot" 
+                   placeholder="Lot/PO number..." 
+                   style="flex: 1; max-width: 200px; padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 4px;">
+            
+            <button id="clear-filters" 
+                    class="btn btn-secondary" 
+                    style="padding: 0.4rem 1rem;">
+                Clear All
+            </button>
+            
+            <span id="filter-info" 
+                  style="margin-left: auto; font-size: 0.875rem; color: #6b7280;">
+            </span>
         </div>
         
         <div class="planning-main">
@@ -697,7 +732,7 @@ $current_planning = $db->getValue("
                                         <div class="job-meta">
                                             <span class="job-quantity">Qty: <?php echo number_format($job['op_pln_prdqty']); ?></span>
                                             <span class="job-due-date" data-due="<?php echo $job['op_date']; ?>">
-                                                Due: <?php echo date('M j', strtotime($job['op_date'])); ?>
+                                                Due: <?php echo formatDateWithMonth($job['op_date']); ?>
                                             </span>
                                         </div>
                                     </div>
@@ -1562,12 +1597,79 @@ $current_planning = $db->getValue("
             }
         }
         
+        // Quick filter functionality
+        function initQuickFilter() {
+            const itemInput = document.getElementById('filter-item');
+            const lotInput = document.getElementById('filter-lot');
+            const clearBtn = document.getElementById('clear-filters');
+            const filterInfo = document.getElementById('filter-info');
+            
+            function applyFilter() {
+                const itemFilter = itemInput.value.toLowerCase().trim();
+                const lotFilter = lotInput.value.toLowerCase().trim();
+                
+                // Get all job cards from BOTH panels
+                const allCards = document.querySelectorAll('.job-card');
+                let hiddenCount = 0;
+                let totalCount = allCards.length;
+                
+                allCards.forEach(card => {
+                    const itemName = (card.dataset.item || '').toLowerCase();
+                    const lotNumber = (card.dataset.poRef || '').toLowerCase();
+                    
+                    // Check if card matches filters
+                    const itemMatch = !itemFilter || itemName.includes(itemFilter);
+                    const lotMatch = !lotFilter || lotNumber.includes(lotFilter);
+                    
+                    if (itemMatch && lotMatch) {
+                        card.style.display = ''; // Show
+                        card.style.opacity = '1';
+                    } else {
+                        card.style.display = 'none'; // Hide
+                        hiddenCount++;
+                    }
+                });
+                
+                // Update info text
+                if (itemFilter || lotFilter) {
+                    filterInfo.textContent = `(${hiddenCount} hidden of ${totalCount})`;
+                    clearBtn.style.display = 'inline-block';
+                } else {
+                    filterInfo.textContent = '';
+                    clearBtn.style.display = 'none';
+                }
+            }
+            
+            // Apply filter on typing
+            itemInput.addEventListener('input', applyFilter);
+            lotInput.addEventListener('input', applyFilter);
+            
+            // Clear all filters
+            clearBtn.addEventListener('click', function() {
+                itemInput.value = '';
+                lotInput.value = '';
+                applyFilter();
+                
+                // Show feedback
+                filterInfo.textContent = 'Filters cleared';
+                setTimeout(() => {
+                    filterInfo.textContent = '';
+                }, 2000);
+            });
+            
+            // Initially hide clear button
+            clearBtn.style.display = 'none';
+        }
+        
         // Initial setup
         window.addEventListener('DOMContentLoaded', function() {
             hideEmptyState();
             if (document.querySelectorAll('#todays-sequence .job-card').length === 0) {
                 checkEmptyState();
             }
+            
+            // Initialize quick filter
+            initQuickFilter();
             
             // Check for previous jobs on page load
             <?php if (!empty($previous_jobs)): ?>
