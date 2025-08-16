@@ -4,7 +4,12 @@
  * Entry point that handles operator login and job timeline display
  */
 
-session_start();
+// Include session configuration first
+require_once 'config/session.php';
+
+// Initialize session with security settings
+initializeSession();
+
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', 1);
 
@@ -13,20 +18,8 @@ ob_start();
 
 // Handle logout first - before any other processing
 if (isset($_GET['logout']) && $_GET['logout'] == '1') {
-    // Clear all session variables
-    $_SESSION = array();
-    
-    // Delete the session cookie if it exists
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    
-    // Destroy the session
-    session_destroy();
+    // Use the centralized session destroy function
+    destroySession();
     
     // Output JavaScript to clear localStorage before redirect
     ?>
@@ -52,46 +45,31 @@ if (isset($_GET['logout']) && $_GET['logout'] == '1') {
 
 // Handle force login - clear session and show login form
 if (isset($_GET['login']) && $_GET['login'] == '1') {
-    // Clear all session variables
-    $_SESSION = array();
-    
-    // Delete the session cookie if it exists
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    
-    // Destroy the session
-    session_destroy();
+    // Destroy the current session
+    destroySession();
     
     // Start a new session for the login
-    session_start();
+    initializeSession();
     
-    // Continue to show login form (don't redirect)
-    $_SESSION = array();
+    // Mark as force login
     $_SESSION['force_login'] = true;
 }
 
-// Check for session timeout (30 minutes = 1800 seconds)
-if (isset($_SESSION['last_activity']) && !isset($_GET['login'])) {
-    $inactive = time() - $_SESSION['last_activity'];
-    if ($inactive > 1800) { // 30 minutes
-        // Session has timed out
-        $_SESSION = array();
-        session_destroy();
+// Check for session validity and timeout
+if (!isset($_GET['login']) && session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['operator_id'])) {
+    if (!isSessionValid()) {
+        // Session has expired or is invalid
+        destroySession();
         
         // Get machine code if available
         $m_param = isset($_GET['m']) ? '?m=' . $_GET['m'] : '';
         header('Location: index.php' . $m_param . '&timeout=1');
         exit;
     }
+    
+    // Update activity timestamp
+    updateSessionActivity();
 }
-
-// Update last activity time
-$_SESSION['last_activity'] = time();
 
 // Include configuration and database
 require_once 'config/database.php';
@@ -122,15 +100,8 @@ $conn = $db->getConnection();
 // Ensure debug is off
 $conn->debug = false;
 
-// Check if operator is logged in - enhanced session validation
-// Force login if requested
-$logged_in = isset($_SESSION['operator_id']) && 
-             isset($_SESSION['shift']) && 
-             isset($_SESSION['work_date']) && 
-             isset($_SESSION['machine_code']) && 
-             !empty($_SESSION['operator_id']) && 
-             !empty($_SESSION['shift']) &&
-             !isset($_SESSION['force_login']);
+// Check if operator is logged in using centralized validation
+$logged_in = isSessionValid() && !isset($_SESSION['force_login']);
 
 // Clear force_login flag if it was set
 if (isset($_SESSION['force_login'])) {
@@ -155,13 +126,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $machine_data = $db->getRow("SELECT mm_supervisor_pin FROM machine WHERE mm_code = ?", [$machine_code]);
             
             if ($machine_data && $machine_data['mm_supervisor_pin'] === $_POST['supervisor_pin']) {
-                // PIN is correct, set supervisor session
-                $_SESSION['operator_id'] = 'SUPERVISOR';
-                $_SESSION['operator_name'] = 'SUPERVISOR';
-                $_SESSION['shift'] = $_POST['shift'];
-                $_SESSION['work_date'] = $work_date;
-                $_SESSION['machine_code'] = $machine_code;
-                $_SESSION['is_supervisor'] = true;
+                // PIN is correct, set supervisor session using centralized function
+                setLoginSession(
+                    'SUPERVISOR',
+                    'SUPERVISOR',
+                    $_POST['shift'],
+                    $work_date,
+                    $machine_code,
+                    true
+                );
                 
                 // Redirect to planning interface
                 header('Location: planning.php');
@@ -173,13 +146,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $login_error = 'PIN required for supervisor access';
         }
     } else {
-        // Regular operator login
-        $_SESSION['operator_id'] = $operator_name; // Use name as ID for traceability
-        $_SESSION['operator_name'] = $operator_name;
-        $_SESSION['shift'] = $_POST['shift'];
-        $_SESSION['work_date'] = $work_date;
-        $_SESSION['machine_code'] = $machine_code;
-        $_SESSION['is_supervisor'] = false;
+        // Regular operator login using centralized function
+        setLoginSession(
+            $operator_name,
+            $operator_name,
+            $_POST['shift'],
+            $work_date,
+            $machine_code,
+            false
+        );
         
         header('Location: index.php');
         exit;
@@ -211,6 +186,9 @@ if (!$logged_in) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Job Center - <?php echo $machine_code; ?></title>
     <link rel="stylesheet" href="assets/css/app.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 </head>
 <body class="login-page">
     <div class="login-container">
@@ -375,6 +353,7 @@ if (!$logged_in) {
         }
         }); // End of DOMContentLoaded
     </script>
+    <script src="assets/js/session-manager.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
     <?php
@@ -471,7 +450,7 @@ if (!empty($planning_jobs)) {
     $jobs = $planning_jobs;
     error_log("JobCenter: Using " . count($jobs) . " jobs from mach_planning table");
 } else {
-    // Fallback to operations table - get all active jobs for the machine
+    // Fallback to operations table - only get sequenced jobs (op_seq > 0)
     $jobs_query = "
         SELECT 
             o.op_id,
@@ -496,11 +475,12 @@ if (!empty($planning_jobs)) {
         LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
         WHERE o.op_mach = ?
         AND o.op_status NOT IN (10, 11)
-        ORDER BY COALESCE(o.op_seq, 999), o.op_start ASC
+        AND o.op_seq IS NOT NULL AND o.op_seq > 0
+        ORDER BY o.op_seq, o.op_start ASC
     ";
 
     $jobs = $db->getAll($jobs_query, [$machine['mm_id']]);
-    error_log("JobCenter: Using " . count($jobs ?? []) . " jobs from operations table");
+    error_log("JobCenter: Using " . count($jobs ?? []) . " sequenced jobs from operations table");
 }
 
 // Check if query failed

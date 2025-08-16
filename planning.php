@@ -4,15 +4,24 @@
  * Comprehensive drag-and-drop interface for job sequencing
  */
 
-session_start();
+// Include session configuration
+require_once 'config/session.php';
+
+// Initialize session with security settings
+initializeSession();
+
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', 1);
 
-// Check if user is logged in as supervisor
-if (!isset($_SESSION['is_supervisor']) || !$_SESSION['is_supervisor']) {
-    header('Location: index.php');
+// Check if user is logged in as supervisor and session is valid
+if (!isSessionValid() || !isset($_SESSION['is_supervisor']) || !$_SESSION['is_supervisor']) {
+    destroySession();
+    header('Location: index.php?login=1');
     exit;
 }
+
+// Update session activity
+updateSessionActivity();
 
 // Include configuration and database
 require_once 'config/database.php';
@@ -35,7 +44,7 @@ if (!$machine) {
 
 // Handle logout
 if (isset($_GET['logout'])) {
-    session_destroy();
+    destroySession();
     header('Location: index.php');
     exit;
 }
@@ -75,6 +84,9 @@ $available_jobs = $db->getAll("
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planning Interface - <?php echo $machine_code; ?></title>
     <link rel="stylesheet" href="assets/css/app.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
         .planning-container {
@@ -681,6 +693,7 @@ $available_jobs = $db->getAll("
 
     <!-- Include Planning Component -->
     <script src="assets/js/components/planning.js"></script>
+    <script src="assets/js/session-manager.js?v=<?php echo time(); ?>"></script>
     
     <script>
         // Configuration

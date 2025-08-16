@@ -280,29 +280,40 @@
                  aria-label="Job <?php echo $job['op_lot']; ?> - <?php echo $job['item_code']; ?> from <?php echo date('H:i', $start_time); ?> to <?php echo date('H:i', $end_time); ?>"
                  onkeydown="if(event.key==='Enter'||event.key===' ') viewJob(<?php echo $job['op_id']; ?>, <?php echo $is_current ? 'true' : 'false'; ?>)">
                 
-                <div class="job-header">
-                    <span class="job-lot"><?php echo !empty($job['po_ref']) ? htmlspecialchars($job['po_ref']) : $job['op_lot']; ?></span>
-                    <?php if (!empty($job['shift'])): 
-                        $shift_letter = is_numeric($job['shift']) ? 
-                            ['', 'A', 'B', 'C'][$job['shift']] ?? '' : 
-                            $job['shift'];
-                    ?>
-                        <span class="shift-badge shift-<?php echo strtolower($shift_letter); ?>">Shift <?php echo $shift_letter; ?></span>
-                    <?php endif; ?>
-                    <span class="job-status"><?php echo getStatusLabel($job['op_status']); ?></span>
+                <?php if (!empty($job['shift'])): 
+                    $shift_letter = is_numeric($job['shift']) ? 
+                        ['', 'A', 'B', 'C'][$job['shift']] ?? '' : 
+                        $job['shift'];
+                ?>
+                    <div class="shift-badge shift-<?php echo strtolower($shift_letter); ?>" style="position: absolute; top: 4px; right: 4px;">
+                        Shift <?php echo $shift_letter; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <div class="job-status-badge" style="background-color: <?php echo getStatusColor($job['op_status']); ?>">
+                    <?php echo getStatusLabel($job['op_status']); ?>
                 </div>
                 
-                <div class="job-content">
-                    <div class="job-item"><?php echo $job['item_code']; ?></div>
-                    <div class="job-time">
-                        <?php echo date('H:i', $start_time); ?> - <?php echo date('H:i', $end_time); ?>
-                    </div>
-                    <div class="job-qty"><?php echo $job['op_act_prdqty']; ?> / <?php echo $job['op_pln_prdqty']; ?> pcs</div>
-                    <?php if (!empty($job['due_date'])): ?>
-                        <div class="job-edd <?php echo getEddClass($job['due_date']); ?>">
-                            EDD: <?php echo date('d M', strtotime($job['due_date'])); ?>
-                        </div>
+                <div class="job-lot">Job: <?php echo htmlspecialchars($job['op_lot']); ?></div>
+                
+                <div class="job-details">
+                    <?php if (!empty($job['item_code'])): ?>
+                        <div class="job-item-name"><?php echo htmlspecialchars($job['item_code']); ?></div>
                     <?php endif; ?>
+                    <?php if (!empty($job['po_ref'])): ?>
+                        <div>Lot: <?php echo htmlspecialchars($job['po_ref']); ?></div>
+                    <?php endif; ?>
+                    <div class="job-meta">
+                        <span class="job-quantity">Qty: <?php echo number_format($job['op_pln_prdqty']); ?></span>
+                        <?php if (!empty($job['due_date'])): ?>
+                            <span class="job-due-date <?php echo getEddClass($job['due_date']); ?>">
+                                Due: <?php echo date('M j', strtotime($job['due_date'])); ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="job-time">
+                        <strong><?php echo date('H:i', $start_time); ?> - <?php echo date('H:i', $end_time); ?></strong>
+                    </div>
                 </div>
                 
                 <div class="job-progress">
@@ -330,6 +341,7 @@
 
     <!-- JavaScript -->
     <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
+    <script src="assets/js/session-manager.js?v=<?php echo time(); ?>"></script>
     <script>
         // Check localStorage for sequenced jobs
         const machineId = <?php echo isset($machine['mm_id']) ? $machine['mm_id'] : 'null'; ?>;
@@ -645,5 +657,24 @@ function getStatusLabel($status) {
         13 => 'QC Check'
     ];
     return $labels[$status] ?? 'Unknown';
+}
+
+// Helper function to get status color
+function getStatusColor($status) {
+    $colors = [
+        1 => '#94a3b8',  // New - slate
+        2 => '#3b82f6',  // Assigned - blue
+        3 => '#f59e0b',  // Setup - amber
+        4 => '#8b5cf6',  // FPQC - violet
+        5 => '#10b981',  // In Process - emerald
+        6 => '#f97316',  // Paused - orange
+        7 => '#ef4444',  // Breakdown - red
+        8 => '#eab308',  // On Hold - yellow
+        9 => '#6366f1',  // LPQC - indigo
+        10 => '#22c55e', // Complete - green
+        12 => '#dc2626', // QC Hold - red
+        13 => '#a855f7'  // QC Check - purple
+    ];
+    return $colors[$status] ?? '#6b7280';
 }
 ?>

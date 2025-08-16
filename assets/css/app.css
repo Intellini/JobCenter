@@ -1992,15 +1992,54 @@ textarea:focus-visible {
 /* Enhanced Job Blocks */
 .job-block {
     position: absolute;
-    height: var(--job-block-height);
+    min-height: 140px;
     background: white;
     border: 2px solid var(--border-color);
     border-radius: 8px;
     padding: 0.75rem;
     cursor: pointer;
     transition: all 0.2s;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.job-block .job-status-badge {
+    display: inline-block;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.job-block .job-lot {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.job-block .job-item-name {
+    color: #4b5563;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.job-block .job-meta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+.job-block .job-time {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #e5e7eb;
+    color: #1f2937;
+    font-size: 0.85rem;
 }
 
 /* Shift-specific styling */
