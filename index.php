@@ -418,7 +418,7 @@ $planning_query = "
         mp.mp_op_esttime as op_setup_time,
         mp.mp_op_calctime as op_prd_time,
         mp.mp_op_pln_prdqty as op_pln_prdqty,
-        mp.mp_op_act_prdqty as op_act_prdqty,
+        COALESCE(mp.mp_op_act_prdqty, 0) as op_act_prdqty,
         mp.mp_op_status as op_status,
         mp.mp_op_proditm as item_code,
         mp.mp_op_proditm as item_name,
@@ -439,9 +439,10 @@ $planning_jobs = $db->getAll($planning_query, [$machine['mm_id'], $_SESSION['wor
 
 // Log the query for debugging
 error_log("JobCenter: Checking mach_planning with machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date'] . " (all shifts)");
+error_log("JobCenter: mach_planning query returned " . (is_array($planning_jobs) ? count($planning_jobs) : '0') . " jobs");
 
 if ($planning_jobs === false) {
-    error_log("JobCenter: mach_planning query failed - using operations table fallback");
+    error_log("JobCenter: mach_planning query failed - " . $db->ErrorMsg());
     $planning_jobs = [];
 }
 
@@ -450,37 +451,12 @@ if (!empty($planning_jobs)) {
     $jobs = $planning_jobs;
     error_log("JobCenter: Using " . count($jobs) . " jobs from mach_planning table");
 } else {
-    // Fallback to operations table - only get sequenced jobs (op_seq > 0)
-    $jobs_query = "
-        SELECT 
-            o.op_id,
-            o.op_lot,
-            o.op_obid as op_order,
-            o.op_prod as op_prd,
-            o.op_pln_prdqty,
-            o.op_act_prdqty,
-            o.op_status,
-            o.op_start as op_pln_stdt,
-            o.op_end as op_pln_endt,
-            o.op_stp_time as op_setup_time,
-            o.op_tot_pause as op_prd_time,
-            o.op_holdflg,
-            o.op_seq,
-            wi.im_name as item_code,
-            wi.im_name as item_name,
-            oh.ob_porefno as po_ref,
-            oh.ob_eddt as due_date
-        FROM operations o
-        LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
-        LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
-        WHERE o.op_mach = ?
-        AND o.op_status NOT IN (10, 11)
-        AND o.op_seq IS NOT NULL AND o.op_seq > 0
-        ORDER BY o.op_seq, o.op_start ASC
-    ";
-
-    $jobs = $db->getAll($jobs_query, [$machine['mm_id']]);
-    error_log("JobCenter: Using " . count($jobs ?? []) . " sequenced jobs from operations table");
+    // Fallback: No planned jobs found, show empty timeline
+    $jobs = [];
+    error_log("JobCenter: No planned jobs found in mach_planning for machine_id=" . $machine['mm_id'] . ", date=" . $_SESSION['work_date']);
+    
+    // Optional: You could check localStorage on the client side for planned jobs
+    // but don't pull all operations jobs automatically
 }
 
 // Check if query failed

@@ -4,14 +4,22 @@
  * Handles supervisor planning actions: add, remove, and reorder jobs
  */
 
-session_start();
+// Include session configuration
+require_once '../../config/session.php';
+
+// Initialize session with security settings
+initializeSession();
+
 header('Content-Type: application/json');
 
-// Check if user is logged in as supervisor
-if (!isset($_SESSION['is_supervisor']) || !$_SESSION['is_supervisor']) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
+// Check if user is logged in as supervisor with valid session
+if (!isSessionValid() || !isset($_SESSION['is_supervisor']) || !$_SESSION['is_supervisor']) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized access - session invalid or not supervisor']);
     exit;
 }
+
+// Update session activity
+updateSessionActivity();
 
 require_once '../../config/database.php';
 
