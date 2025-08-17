@@ -512,45 +512,6 @@ if (!empty($jobs)) {
     });
 }
 
-// Get downtime events for the current machine and date
-$downtime_events = $db->getAll("
-    SELECT 
-        dt.dt_id,
-        dt.dt_type,
-        dt.dt_rsn,
-        dt.dt_stdt,
-        dt.dt_endt,
-        dt.dt_remarks,
-        dt.dt_lot,
-        dt.dt_itm,
-        TIMESTAMPDIFF(MINUTE, dt.dt_stdt, COALESCE(dt.dt_endt, NOW())) as duration_minutes,
-        CASE 
-            WHEN dt.dt_type = 1 THEN 'breakdown'
-            WHEN dt.dt_type = 2 THEN 'pause'
-            WHEN dt.dt_type = 3 THEN 'setup'
-            WHEN dt.dt_type = 4 THEN 'changeover'
-            ELSE 'other'
-        END as loss_type,
-        CASE 
-            WHEN dt.dt_type = 1 THEN 'Machine Breakdown'
-            WHEN dt.dt_type = 2 THEN 'Production Pause'
-            WHEN dt.dt_type = 3 THEN 'Setup Delay' 
-            WHEN dt.dt_type = 4 THEN 'Changeover Excess'
-            ELSE 'Other Loss'
-        END as loss_description
-    FROM downtime dt
-    WHERE dt.dt_mchid = ?
-    AND DATE(dt.dt_stdt) = ?
-    ORDER BY dt.dt_stdt ASC
-", [$machine['mm_id'], $_SESSION['work_date']]);
-
-if ($downtime_events === false) {
-    error_log("JobCenter: downtime events query failed - " . $db->ErrorMsg());
-    $downtime_events = [];
-}
-
-error_log("JobCenter: Found " . count($downtime_events) . " downtime events");
-
 // Clean any accidental output before showing the view
 ob_clean();
 

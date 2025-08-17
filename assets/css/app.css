@@ -2457,6 +2457,37 @@ textarea:focus-visible {
     color: #991B1B;
 }
 
+/* Timeline-specific burn rate styles */
+.timeline-view .burn-rate-display {
+    font-size: 0.75rem;
+}
+
+.timeline-view .burn-rate-label {
+    margin-bottom: 2px;
+}
+
+.timeline-view .burn-rate-value {
+    font-size: 0.8rem;
+}
+
+.timeline-view .burn-rate-bar {
+    height: 12px;
+    margin: 2px 0;
+}
+
+.timeline-view .burn-rate-fill {
+    font-size: 0.65rem;
+}
+
+/* Ensure burn rate displays are visible in small job blocks */
+.job-block .burn-rate-display {
+    margin: 4px 0;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 /* Buffer Indicator */
 .buffer-indicator {
     background: #F3F4F6;

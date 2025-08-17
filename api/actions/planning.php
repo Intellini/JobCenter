@@ -441,6 +441,38 @@ try {
             }
             break;
             
+        case 'get_buffer_status':
+            // Get buffer status for current shift
+            if (!isset($input['machine_code'], $input['date'], $input['shift'])) {
+                throw new Exception('Missing parameters for get_buffer_status');
+            }
+            
+            // Include the planning helper for calculateBufferStatus function
+            require_once '../../helpers/planning_helper.php';
+            
+            // Get machine ID from machine code (using m_id and m_code as per downtime table)
+            $machine_id = $db->getValue("SELECT m_id FROM machine WHERE m_code = ?", [$input['machine_code']]);
+            
+            if (!$machine_id) {
+                throw new Exception('Machine not found');
+            }
+            
+            // Convert shift letter to number if needed (A=1, B=2, C=3)
+            $shift_num = $input['shift'];
+            if (is_string($shift_num)) {
+                $shift_map = ['A' => 1, 'B' => 2, 'C' => 3];
+                $shift_num = $shift_map[$shift_num] ?? 1;
+            }
+            
+            // Calculate buffer status
+            $buffer_status = calculateBufferStatus($input['machine_code'], $input['date'], $shift_num);
+            
+            echo json_encode([
+                'success' => true,
+                'buffer_status' => $buffer_status
+            ]);
+            break;
+            
         default:
             throw new Exception('Unknown action: ' . $input['action']);
     }

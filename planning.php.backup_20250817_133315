@@ -7,7 +7,6 @@
 // Include session configuration
 require_once 'config/session.php';
 require_once 'helpers/date_helper.php';
-require_once 'helpers/planning_helper.php';
 
 // Initialize session with security settings
 initializeSession();
@@ -77,33 +76,29 @@ $available_jobs = $db->getAll("
     ORDER BY o.op_date ASC, o.op_seq ASC
 ", [$machine['mm_id']]);
 
-// Check for incomplete jobs from previous working date
-$previous_date = getPreviousWorkingDate($work_date, $db->getConnection());
-$previous_jobs = [];
-
-if ($previous_date) {
-    $previous_jobs = $db->getAll("
-        SELECT 
-            mp.*,
-            o.op_lot,
-            o.op_status as current_status,
-            wi.im_name as item_name,
-            oh.ob_porefno as po_ref,
-            CASE 
-                WHEN COALESCE(o.op_status, mp.mp_op_status) BETWEEN 3 AND 9 THEN 'started'
-                WHEN COALESCE(o.op_status, mp.mp_op_status) IN (0,1,2) THEN 'not_started'
-                ELSE 'other'
-            END as job_category
-        FROM mach_planning mp
-        LEFT JOIN operations o ON mp.mp_op_id = o.op_id
-        LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
-        LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
-        WHERE mp.mp_op_mach = ?
-        AND mp.mp_op_proddate = ?
-        AND COALESCE(o.op_status, mp.mp_op_status) < 10
-        ORDER BY mp.mp_op_seq ASC
-    ", [$machine['mm_id'], $previous_date]);
-}
+// Check for incomplete jobs from previous date
+$previous_date = date('Y-m-d', strtotime($work_date . ' -1 day'));
+$previous_jobs = $db->getAll("
+    SELECT 
+        mp.*,
+        o.op_lot,
+        o.op_status as current_status,
+        wi.im_name as item_name,
+        oh.ob_porefno as po_ref,
+        CASE 
+            WHEN COALESCE(o.op_status, mp.mp_op_status) BETWEEN 3 AND 9 THEN 'started'
+            WHEN COALESCE(o.op_status, mp.mp_op_status) IN (0,1,2) THEN 'not_started'
+            ELSE 'other'
+        END as job_category
+    FROM mach_planning mp
+    LEFT JOIN operations o ON mp.mp_op_id = o.op_id
+    LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+    LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+    WHERE mp.mp_op_mach = ?
+    AND mp.mp_op_proddate = ?
+    AND COALESCE(o.op_status, mp.mp_op_status) < 10
+    ORDER BY mp.mp_op_seq ASC
+", [$machine['mm_id'], $previous_date]);
 
 // Check if current date already has planning
 $current_planning = $db->getValue("
@@ -113,38 +108,6 @@ $current_planning = $db->getValue("
 ", [$machine['mm_id'], $work_date]);
 
 // Get today's sequenced jobs from localStorage (will be handled by JavaScript)
-
-// Get downtime events for the current machine and date
-$downtime_events = $db->getAll("
-    SELECT 
-        dt.dt_id,
-        dt.dt_type,
-        dt.dt_rsn,
-        dt.dt_stdt,
-        dt.dt_endt,
-        dt.dt_remarks,
-        dt.dt_lot,
-        dt.dt_itm,
-        TIMESTAMPDIFF(MINUTE, dt.dt_stdt, COALESCE(dt.dt_endt, NOW())) as duration_minutes,
-        CASE 
-            WHEN dt.dt_type = 1 THEN 'breakdown'
-            WHEN dt.dt_type = 2 THEN 'pause'
-            WHEN dt.dt_type = 3 THEN 'setup'
-            WHEN dt.dt_type = 4 THEN 'changeover'
-            ELSE 'other'
-        END as loss_type,
-        CASE 
-            WHEN dt.dt_type = 1 THEN 'Machine Breakdown'
-            WHEN dt.dt_type = 2 THEN 'Production Pause'
-            WHEN dt.dt_type = 3 THEN 'Setup Delay' 
-            WHEN dt.dt_type = 4 THEN 'Changeover Excess'
-            ELSE 'Other Loss'
-        END as loss_description
-    FROM downtime dt
-    WHERE dt.dt_mchid = ?
-    AND DATE(dt.dt_stdt) = ?
-    ORDER BY dt.dt_stdt ASC
-", [$machine['mm_id'], $work_date]);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -581,12 +544,6 @@ $downtime_events = $db->getAll("
             
             .header-actions {
                 align-self: stretch;
-                flex-wrap: wrap;
-            }
-            
-            #buffer-status-container {
-                min-width: 180px !important;
-                margin-right: 0.5rem !important;
             }
             
             #available-jobs {
@@ -607,15 +564,6 @@ $downtime_events = $db->getAll("
             #available-jobs {
                 grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
                 gap: 0.75rem;
-            }
-            
-            #buffer-status-container {
-                min-width: 160px !important;
-                font-size: 0.8rem !important;
-            }
-            
-            #buffer-status-container .buffer-bar {
-                height: 6px !important;
             }
             
             /* Responsive adjustments for changeover cards */
@@ -662,30 +610,6 @@ $downtime_events = $db->getAll("
             }
         }
 
-        /* Time Loss Cards Integration */
-        .time-loss-group {
-            position: relative;
-            z-index: 25;
-            margin: 0.5rem auto;
-            width: calc(100% - 1rem);
-        }
-        
-        .time-loss-group .time-loss-card {
-            margin: 2px 0;
-            transition: all 0.2s ease;
-            cursor: help;
-        }
-        
-        .time-loss-group .time-loss-card:hover {
-            transform: translateY(-1px) scale(1.02);
-        }
-        
-        /* Ensure time loss cards appear above other elements */
-        #todays-sequence .time-loss-group {
-            position: relative;
-            z-index: 30;
-        }
-        
         /* Sortable.js Styles */
         .sortable-ghost {
             opacity: 0.4;
@@ -727,21 +651,6 @@ $downtime_events = $db->getAll("
                 </div>
             </div>
             <div class="header-actions">
-                <!-- Buffer Status Indicator -->
-                <div id="buffer-status-container" class="buffer-indicator" style="display: none; margin-right: 1rem; min-width: 200px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 600; font-size: 0.9rem;">Shift Buffer</span>
-                        <span id="buffer-percentage" style="font-weight: bold; font-size: 0.9rem;">--</span>
-                    </div>
-                    <div class="buffer-bar">
-                        <div id="buffer-fill" class="buffer-fill" style="width: 100%; transition: width 0.3s ease;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 4px; color: #6b7280;">
-                        <span id="buffer-used">Used: -- min</span>
-                        <span id="buffer-overtime">Overtime: -- min</span>
-                    </div>
-                </div>
-                
                 <button onclick="saveAndExitToOperator()" class="btn-operator-view">Exit to Operator View</button>
                 <a href="?logout=1" class="btn btn-logout">Logout</a>
             </div>
@@ -826,23 +735,6 @@ $downtime_events = $db->getAll("
                                                 Due: <?php echo formatDateWithMonth($job['op_date']); ?>
                                             </span>
                                         </div>
-                                        
-                                        <!-- Burn Rate Display for jobs with status >= 3 (started) -->
-                                        <?php if ($job['op_status'] >= 3): ?>
-                                        <div class="burn-rate-display" style="margin-top: 0.5rem; display: none;" data-job-id="<?php echo $job['op_id']; ?>">
-                                            <div class="burn-rate-label">
-                                                <span>Burn Rate</span>
-                                                <span class="burn-rate-value">--</span>
-                                            </div>
-                                            <div class="burn-rate-bar">
-                                                <div class="burn-rate-fill" style="width: 0%;">--</div>
-                                            </div>
-                                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 2px;">
-                                                <span class="time-progress">Time: --%</span>
-                                                <span class="qty-progress">Qty: --%</span>
-                                            </div>
-                                        </div>
-                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -891,9 +783,6 @@ $downtime_events = $db->getAll("
             defaultJobTime: <?php echo $config['planning']['default_job_time_minutes']; ?>
         };
         
-        // Downtime events data
-        const DOWNTIME_EVENTS = <?php echo json_encode($downtime_events); ?>;
-        
         // Shift times (can be configured)
         const SHIFT_TIMES = {
             'A': { start: '06:00', end: '14:00' },
@@ -903,270 +792,11 @@ $downtime_events = $db->getAll("
         
         // Global planning component instance
         let planningComponent;
-        let timeLossManager;
-
-        /**
-         * TimeLossCard class for rendering time loss events
-         */
-        class TimeLossCard {
-            constructor(lossEvent) {
-                this.event = lossEvent;
-                this.element = null;
-                this.createCard();
-            }
-
-            createCard() {
-                this.element = document.createElement('div');
-                this.element.className = `time-loss-card ${this.event.loss_type}`;
-                this.element.dataset.eventId = this.event.dt_id;
-                this.element.dataset.lossType = this.event.loss_type;
-                this.element.dataset.duration = this.event.duration_minutes;
-                
-                // Get icon based on loss type
-                const icon = this.getIcon(this.event.loss_type);
-                
-                // Format duration
-                const duration = this.formatDuration(this.event.duration_minutes);
-                
-                // Format reason/description
-                const reason = this.event.dt_remarks || this.event.loss_description;
-                
-                this.element.innerHTML = `
-                    <span class="icon">${icon}</span>
-                    <span class="duration">${duration}</span>
-                    <span class="reason">${reason}</span>
-                `;
-                
-                // Add hover tooltip
-                this.element.title = `${this.event.loss_description}\nStart: ${this.formatTime(this.event.dt_stdt)}\nEnd: ${this.formatTime(this.event.dt_endt)}\nDuration: ${duration}${this.event.dt_remarks ? '\nReason: ' + this.event.dt_remarks : ''}`;
-                
-                return this.element;
-            }
-
-            getIcon(lossType) {
-                const icons = {
-                    'breakdown': '⚡',
-                    'pause': '⏸️',
-                    'setup': '🔧',
-                    'changeover': '🔄',
-                    'rate': '📉',
-                    'other': '⚠️'
-                };
-                return icons[lossType] || icons.other;
-            }
-
-            formatDuration(minutes) {
-                if (minutes < 60) {
-                    return `${minutes}min`;
-                } else {
-                    const hours = Math.floor(minutes / 60);
-                    const mins = minutes % 60;
-                    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-                }
-            }
-
-            formatTime(timestamp) {
-                if (!timestamp) return 'Ongoing';
-                const date = new Date(timestamp);
-                return date.toLocaleTimeString('en-US', { 
-                    hour12: false, 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                });
-            }
-
-            getElement() {
-                return this.element;
-            }
-        }
-
-        /**
-         * TimeLossManager class for managing time loss visualization
-         */
-        class TimeLossManager {
-            constructor(downtimeEvents) {
-                this.events = downtimeEvents;
-                this.cards = new Map();
-                this.init();
-            }
-
-            init() {
-                this.processEvents();
-                this.insertTimeLossCards();
-            }
-
-            processEvents() {
-                // Sort events by start time
-                this.events.sort((a, b) => new Date(a.dt_stdt) - new Date(b.dt_stdt));
-                
-                // Group events that happened close together (within 30 minutes)
-                this.groupedEvents = this.groupNearbyEvents(this.events);
-            }
-
-            groupNearbyEvents(events, maxGapMinutes = 30) {
-                if (events.length === 0) return [];
-                
-                const groups = [];
-                let currentGroup = [events[0]];
-                
-                for (let i = 1; i < events.length; i++) {
-                    const prevEnd = new Date(currentGroup[currentGroup.length - 1].dt_endt || new Date());
-                    const currentStart = new Date(events[i].dt_stdt);
-                    const gapMinutes = (currentStart - prevEnd) / (1000 * 60);
-                    
-                    if (gapMinutes <= maxGapMinutes) {
-                        currentGroup.push(events[i]);
-                    } else {
-                        groups.push(currentGroup);
-                        currentGroup = [events[i]];
-                    }
-                }
-                
-                groups.push(currentGroup);
-                return groups;
-            }
-
-            insertTimeLossCards() {
-                const sequenceContainer = document.getElementById('todays-sequence');
-                if (!sequenceContainer) return;
-
-                // Remove existing time loss cards
-                this.clearExistingCards();
-
-                // Calculate where to insert cards based on timeline
-                this.calculateInsertionPoints();
-                
-                // Insert grouped cards
-                this.groupedEvents.forEach(group => {
-                    const insertionPoint = this.findInsertionPoint(group);
-                    const cardGroup = this.createCardGroup(group);
-                    
-                    if (insertionPoint && cardGroup) {
-                        insertionPoint.insertAdjacentElement('afterend', cardGroup);
-                    }
-                });
-            }
-
-            clearExistingCards() {
-                document.querySelectorAll('.time-loss-card').forEach(card => card.remove());
-                document.querySelectorAll('.time-loss-group').forEach(group => group.remove());
-            }
-
-            calculateInsertionPoints() {
-                // Get timeline from planning component if available
-                if (planningComponent) {
-                    this.timeline = planningComponent.getTimelineData();
-                }
-            }
-
-            findInsertionPoint(eventGroup) {
-                const avgTime = this.getAverageTime(eventGroup);
-                const jobCards = document.querySelectorAll('#todays-sequence .job-card');
-                
-                // Find the job card that this event occurred during or after
-                for (let i = 0; i < jobCards.length; i++) {
-                    const card = jobCards[i];
-                    const startTime = card.getAttribute('data-start-time');
-                    const endTime = card.getAttribute('data-end-time');
-                    
-                    if (startTime && endTime) {
-                        const jobStart = this.parseTime(startTime);
-                        const jobEnd = this.parseTime(endTime);
-                        const eventTime = this.parseTime(avgTime);
-                        
-                        if (eventTime >= jobStart && eventTime <= jobEnd) {
-                            return card;
-                        }
-                    }
-                }
-                
-                // If no specific job found, place at the end
-                return jobCards[jobCards.length - 1] || null;
-            }
-
-            getAverageTime(eventGroup) {
-                const times = eventGroup.map(event => new Date(event.dt_stdt).getTime());
-                const avgTimestamp = times.reduce((sum, time) => sum + time, 0) / times.length;
-                return new Date(avgTimestamp).toTimeString().slice(0, 5);
-            }
-
-            createCardGroup(eventGroup) {
-                if (eventGroup.length === 0) return null;
-                
-                const groupElement = document.createElement('div');
-                groupElement.className = 'time-loss-group';
-                groupElement.style.cssText = `
-                    margin: 10px auto;
-                    width: calc(100% - 1rem);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 5px;
-                    z-index: 20;
-                `;
-                
-                // Add total duration if multiple events
-                if (eventGroup.length > 1) {
-                    const totalDuration = eventGroup.reduce((sum, event) => sum + event.duration_minutes, 0);
-                    const header = document.createElement('div');
-                    header.style.cssText = `
-                        text-align: center;
-                        font-size: 0.75rem;
-                        color: #6b7280;
-                        font-weight: 600;
-                        margin-bottom: 2px;
-                    `;
-                    header.textContent = `Time Loss Period (${this.formatDuration(totalDuration)} total)`;
-                    groupElement.appendChild(header);
-                }
-                
-                // Add individual cards
-                eventGroup.forEach(event => {
-                    const card = new TimeLossCard(event);
-                    groupElement.appendChild(card.getElement());
-                });
-                
-                return groupElement;
-            }
-
-            formatDuration(minutes) {
-                if (minutes < 60) {
-                    return `${minutes}min`;
-                } else {
-                    const hours = Math.floor(minutes / 60);
-                    const mins = minutes % 60;
-                    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-                }
-            }
-
-            parseTime(timeStr) {
-                const [hours, minutes] = timeStr.split(':').map(Number);
-                return hours * 60 + minutes;
-            }
-
-            refresh() {
-                this.insertTimeLossCards();
-            }
-
-            addEvent(event) {
-                this.events.push(event);
-                this.processEvents();
-                this.insertTimeLossCards();
-            }
-
-            removeEvent(eventId) {
-                this.events = this.events.filter(event => event.dt_id !== eventId);
-                this.processEvents();
-                this.insertTimeLossCards();
-            }
-        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize planning component
             planningComponent = new PlanningComponent(PLANNING_CONFIG);
-            
-            // Initialize time loss manager
-            timeLossManager = new TimeLossManager(DOWNTIME_EVENTS);
             
             // Load saved default changeover time from localStorage
             const savedChangeoverTime = localStorage.getItem('changeover_time');
@@ -1238,11 +868,6 @@ $downtime_events = $db->getAll("
                             if (planningComponent) {
                                 planningComponent.recalculateTimeline();
                             }
-                            
-                            // Refresh time loss cards
-                            if (timeLossManager) {
-                                setTimeout(() => timeLossManager.refresh(), 100);
-                            }
                         }
                     });
                 },
@@ -1284,11 +909,6 @@ $downtime_events = $db->getAll("
                     if (planningComponent) {
                         planningComponent.recalculateTimeline();
                     }
-                    
-                    // Refresh time loss cards
-                    if (timeLossManager) {
-                        setTimeout(() => timeLossManager.refresh(), 100);
-                    }
                 },
                 onUpdate: function(evt) {
                     updateSequenceNumbers();
@@ -1299,11 +919,6 @@ $downtime_events = $db->getAll("
                     // Trigger planning component recalculation
                     if (planningComponent) {
                         planningComponent.recalculateTimeline();
-                    }
-                    
-                    // Refresh time loss cards
-                    if (timeLossManager) {
-                        setTimeout(() => timeLossManager.refresh(), 100);
                     }
                 },
                 onRemove: function(evt) {
@@ -1349,11 +964,6 @@ $downtime_events = $db->getAll("
                     // Trigger planning component recalculation
                     if (planningComponent) {
                         planningComponent.recalculateTimeline();
-                    }
-                    
-                    // Refresh time loss cards
-                    if (timeLossManager) {
-                        setTimeout(() => timeLossManager.refresh(), 100);
                     }
                 }
             });
@@ -1421,11 +1031,6 @@ $downtime_events = $db->getAll("
                         // Trigger planning component recalculation
                         if (planningComponent) {
                             planningComponent.recalculateTimeline();
-                        }
-                        
-                        // Refresh time loss cards
-                        if (timeLossManager) {
-                            setTimeout(() => timeLossManager.refresh(), 100);
                         }
                     });
                     
@@ -1626,11 +1231,6 @@ $downtime_events = $db->getAll("
                     if (planningComponent) {
                         planningComponent.recalculateTimeline();
                     }
-                    
-                    // Refresh time loss cards after loading sequence
-                    if (timeLossManager) {
-                        setTimeout(() => timeLossManager.refresh(), 200);
-                    }
                 }, 100);
             } catch (e) {
                 console.error('Error loading sequence from storage:', e);
@@ -1811,7 +1411,7 @@ $downtime_events = $db->getAll("
         
         // Previous Jobs Modal Functions
         function checkPreviousJobs() {
-            fetch('api/actions/planning.php', {
+            fetch('/jc/api/actions/planning.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1826,8 +1426,6 @@ $downtime_events = $db->getAll("
             .then(data => {
                 if (data.success && data.jobs && data.jobs.length > 0) {
                     showPreviousJobsModal(data.jobs);
-                } else {
-                    console.log('No previous jobs found');
                 }
             })
             .catch(error => {
@@ -1836,50 +1434,42 @@ $downtime_events = $db->getAll("
         }
         
         function showPreviousJobsModal(jobs) {
-            const startedJobs = jobs.filter(job => job.job_category === 'started');
-            const notStartedJobs = jobs.filter(job => job.job_category === 'not_started');
+            const startedJobs = jobs.filter(job => job.category === 'started');
+            const notStartedJobs = jobs.filter(job => job.category === 'not_started');
             
             // Populate started jobs list
             const startedList = document.getElementById('startedJobsList');
-            if (startedJobs.length === 0) {
-                startedList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #6b7280; font-style: italic;">No started jobs found</div>';
-            } else {
-                startedList.innerHTML = startedJobs.map(job => `
-                    <div class="job-checkbox-item selected" data-job-id="${job.mp_op_id}">
-                        <input type="checkbox" id="job_${job.mp_op_id}" checked />
-                        <div class="job-checkbox-details">
-                            <div class="job-checkbox-lot">${job.op_lot || job.mp_op_lot || 'No Lot'}</div>
-                            <div class="job-checkbox-info">
-                                ${job.item_name || job.mp_op_proditm || 'Unknown Item'} - Qty: ${job.mp_op_pln_prdqty || 0}
-                            </div>
+            startedList.innerHTML = startedJobs.map(job => `
+                <div class="job-checkbox-item ${job.category === 'started' ? 'selected' : ''}" data-job-id="${job.job_id}">
+                    <input type="checkbox" id="job_${job.job_id}" ${job.category === 'started' ? 'checked' : ''} />
+                    <div class="job-checkbox-details">
+                        <div class="job-checkbox-lot">${job.lot || 'No Lot'}</div>
+                        <div class="job-checkbox-info">
+                            ${job.item_name || job.item_code} - Qty: ${job.quantity}
                         </div>
-                        <span class="job-status-badge" style="background: ${getStatusColor(job.current_status || job.mp_op_status)}; color: white;">
-                            ${getStatusLabel(job.current_status || job.mp_op_status)}
-                        </span>
                     </div>
-                `).join('');
-            }
+                    <span class="job-status-badge" style="background: ${getStatusColor(job.status)}; color: white;">
+                        ${getStatusLabel(job.status)}
+                    </span>
+                </div>
+            `).join('');
             
             // Populate not started jobs list
             const notStartedList = document.getElementById('notStartedJobsList');
-            if (notStartedJobs.length === 0) {
-                notStartedList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #6b7280; font-style: italic;">No not-started jobs found</div>';
-            } else {
-                notStartedList.innerHTML = notStartedJobs.map(job => `
-                    <div class="job-checkbox-item" data-job-id="${job.mp_op_id}">
-                        <input type="checkbox" id="job_${job.mp_op_id}" />
-                        <div class="job-checkbox-details">
-                            <div class="job-checkbox-lot">${job.op_lot || job.mp_op_lot || 'No Lot'}</div>
-                            <div class="job-checkbox-info">
-                                ${job.item_name || job.mp_op_proditm || 'Unknown Item'} - Qty: ${job.mp_op_pln_prdqty || 0}
-                            </div>
+            notStartedList.innerHTML = notStartedJobs.map(job => `
+                <div class="job-checkbox-item" data-job-id="${job.job_id}">
+                    <input type="checkbox" id="job_${job.job_id}" />
+                    <div class="job-checkbox-details">
+                        <div class="job-checkbox-lot">${job.lot || 'No Lot'}</div>
+                        <div class="job-checkbox-info">
+                            ${job.item_name || job.item_code} - Qty: ${job.quantity}
                         </div>
-                        <span class="job-status-badge" style="background: ${getStatusColor(job.current_status || job.mp_op_status)}; color: white;">
-                            ${getStatusLabel(job.current_status || job.mp_op_status)}
-                        </span>
                     </div>
-                `).join('');
-            }
+                    <span class="job-status-badge" style="background: ${getStatusColor(job.status)}; color: white;">
+                        ${getStatusLabel(job.status)}
+                    </span>
+                </div>
+            `).join('');
             
             // Add click handlers for job items
             document.querySelectorAll('.job-checkbox-item').forEach(item => {
@@ -1894,25 +1484,12 @@ $downtime_events = $db->getAll("
                 });
             });
             
-            // Show modal as blocking
-            const modal = document.getElementById('previousJobsModal');
-            modal.style.display = 'flex';
-            modal.classList.add('blocking');
-            
-            // Prevent modal from being closed by clicking outside
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    alert('Please make a decision about the previous jobs before continuing.');
-                    return false;
-                }
-            });
+            // Show modal
+            document.getElementById('previousJobsModal').style.display = 'flex';
         }
         
         function closePreviousJobsModal() {
-            // Modal cannot be closed without making a decision
-            alert('Please make a decision about the previous jobs before continuing.');
+            document.getElementById('previousJobsModal').style.display = 'none';
         }
         
         function selectAllStarted() {
@@ -1924,48 +1501,7 @@ $downtime_events = $db->getAll("
         }
         
         function skipPreviousJobs() {
-            if (!confirm('Are you sure you want to release ALL previous jobs back to the job pool? This cannot be undone.')) {
-                return;
-            }
-            
-            // Release all jobs by carrying over none
-            const button = event.target;
-            button.disabled = true;
-            button.textContent = 'Processing...';
-            
-            fetch('api/actions/planning.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    action: 'handle_previous_jobs',
-                    machine_id: MACHINE_ID,
-                    current_date: WORK_DATE,
-                    selected_jobs: [] // Empty array means release all
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const modal = document.getElementById('previousJobsModal');
-                    modal.style.display = 'none';
-                    modal.classList.remove('blocking');
-                    console.log(`Released ${data.released} jobs to pool`);
-                    // Reload page to show updated planning
-                    location.reload();
-                } else {
-                    alert('Error: ' + (data.message || 'Failed to release jobs'));
-                    button.disabled = false;
-                    button.textContent = 'Release All';
-                }
-            })
-            .catch(error => {
-                console.error('Error releasing jobs:', error);
-                alert('Error releasing jobs. Please try again.');
-                button.disabled = false;
-                button.textContent = 'Release All';
-            });
+            closePreviousJobsModal();
         }
         
         function carryOverSelected() {
@@ -1985,7 +1521,7 @@ $downtime_events = $db->getAll("
             button.disabled = true;
             button.textContent = 'Processing...';
             
-            fetch('api/actions/planning.php', {
+            fetch('/jc/api/actions/planning.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -2000,9 +1536,6 @@ $downtime_events = $db->getAll("
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const modal = document.getElementById('previousJobsModal');
-                    modal.style.display = 'none';
-                    modal.classList.remove('blocking');
                     console.log(`Carried over ${data.carried_over} jobs, released ${data.released} jobs`);
                     // Reload page to show updated planning
                     location.reload();
@@ -2128,150 +1661,6 @@ $downtime_events = $db->getAll("
             clearBtn.style.display = 'none';
         }
         
-        // Burn Rate Functions
-        function updateBurnRates() {
-            const burnRateDisplays = document.querySelectorAll('.burn-rate-display');
-            
-            burnRateDisplays.forEach(display => {
-                const jobId = display.dataset.jobId;
-                
-                // Fetch burn rate data
-                fetch('helpers/planning_helper.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=get_burn_rate&job_id=${jobId}`
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateBurnRateDisplay(display, data.burn_rate_data);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching burn rate:', error);
-                });
-            });
-        }
-        
-        function updateBurnRateDisplay(display, burnRateData) {
-            if (burnRateData.status === 'not_started') {
-                display.style.display = 'none';
-                return;
-            }
-            
-            display.style.display = 'block';
-            
-            const valueSpan = display.querySelector('.burn-rate-value');
-            const fillDiv = display.querySelector('.burn-rate-fill');
-            const timeProgress = display.querySelector('.time-progress');
-            const qtyProgress = display.querySelector('.qty-progress');
-            
-            // Update values
-            valueSpan.textContent = burnRateData.burn_rate;
-            timeProgress.textContent = `Time: ${burnRateData.time_progress}%`;
-            qtyProgress.textContent = `Qty: ${burnRateData.qty_progress}%`;
-            
-            // Update progress bar
-            const progressPercent = Math.min(100, burnRateData.burn_rate * 100);
-            fillDiv.style.width = `${progressPercent}%`;
-            fillDiv.textContent = `${burnRateData.burn_rate}`;
-            
-            // Update status class
-            fillDiv.className = 'burn-rate-fill ' + burnRateData.status.replace('_', '-');
-            
-            // Add status badge if needed
-            let statusBadge = display.querySelector('.burn-rate-status');
-            if (!statusBadge) {
-                statusBadge = document.createElement('span');
-                statusBadge.className = 'burn-rate-status';
-                display.querySelector('.burn-rate-label').appendChild(statusBadge);
-            }
-            statusBadge.className = 'burn-rate-status ' + burnRateData.status.replace('_', '-');
-            statusBadge.textContent = burnRateData.status.replace('_', ' ').toUpperCase();
-        }
-        
-        // Buffer Status Functions
-        function updateBufferStatus() {
-            fetch('api/actions/planning.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'get_buffer_status',
-                    machine_code: '<?php echo $machine_code; ?>',
-                    date: WORK_DATE,
-                    shift: SHIFT
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    displayBufferStatus(data.buffer_status);
-                } else {
-                    console.error('Failed to get buffer status:', data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching buffer status:', error);
-            });
-        }
-        
-        function displayBufferStatus(bufferData) {
-            const container = document.getElementById('buffer-status-container');
-            const percentageEl = document.getElementById('buffer-percentage');
-            const fillEl = document.getElementById('buffer-fill');
-            const usedEl = document.getElementById('buffer-used');
-            const overtimeEl = document.getElementById('buffer-overtime');
-            
-            if (!container || !bufferData) return;
-            
-            // Show the container
-            container.style.display = 'block';
-            
-            // Update status class
-            container.className = 'buffer-indicator ' + bufferData.status;
-            
-            // Update percentage
-            const remainingPercent = Math.round(bufferData.buffer_percentage);
-            percentageEl.textContent = remainingPercent + '% remaining';
-            
-            // Update progress bar
-            const usedPercent = Math.round(100 - bufferData.buffer_percentage);
-            fillEl.style.width = usedPercent + '%';
-            
-            // Update buffer color based on status
-            if (bufferData.status === 'critical') {
-                fillEl.style.background = 'linear-gradient(90deg, #EF4444, #DC2626)';
-            } else if (bufferData.status === 'warning') {
-                fillEl.style.background = 'linear-gradient(90deg, #F59E0B, #D97706)';
-            } else {
-                fillEl.style.background = 'linear-gradient(90deg, #10B981, #059669)';
-            }
-            
-            // Update details
-            usedEl.textContent = `Used: ${Math.round(bufferData.buffer_used)} min`;
-            overtimeEl.textContent = `Overtime: ${Math.round(bufferData.overtime_projected)} min`;
-            
-            // Add warning message for critical status
-            if (bufferData.status === 'critical' && bufferData.overtime_projected > 0) {
-                const warningMsg = container.querySelector('.buffer-warning') || document.createElement('div');
-                warningMsg.className = 'buffer-warning';
-                warningMsg.style.cssText = 'font-size: 0.75rem; color: #DC2626; font-weight: 600; margin-top: 4px;';
-                warningMsg.textContent = `⚠️ Shift may overrun by ${Math.round(bufferData.overtime_projected)} minutes`;
-                if (!container.querySelector('.buffer-warning')) {
-                    container.appendChild(warningMsg);
-                }
-            } else {
-                const existingWarning = container.querySelector('.buffer-warning');
-                if (existingWarning) {
-                    existingWarning.remove();
-                }
-            }
-        }
-
         // Initial setup
         window.addEventListener('DOMContentLoaded', function() {
             hideEmptyState();
@@ -2282,19 +1671,11 @@ $downtime_events = $db->getAll("
             // Initialize quick filter
             initQuickFilter();
             
-            // Initialize burn rate updates
-            updateBurnRates();
-            setInterval(updateBurnRates, 30000); // Update every 30 seconds
-            
-            // Initialize buffer status updates
-            updateBufferStatus();
-            setInterval(updateBufferStatus, 60000); // Update every minute
-            
             // Check for previous jobs on page load
             <?php if (!empty($previous_jobs)): ?>
-            document.getElementById('loadingMessage').textContent = 'Checking incomplete jobs from previous working date...';
+            document.getElementById('loadingMessage').textContent = 'Checking incomplete jobs from previous date...';
             setTimeout(() => {
-                showPreviousJobsModal(<?php echo json_encode($previous_jobs); ?>);
+                checkPreviousJobs();
                 hideLoadingOverlay();
             }, 500);
             <?php else: ?>
@@ -2308,22 +1689,18 @@ $downtime_events = $db->getAll("
     <div id="previousJobsModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb;">
-                <h3 style="margin: 0; color: #1f2937;">Incomplete Jobs from Previous Working Date</h3>
-                <div style="background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">DECISION REQUIRED</div>
+                <h3 style="margin: 0; color: #1f2937;">Incomplete Jobs from Previous Date</h3>
+                <button onclick="closePreviousJobsModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">&times;</button>
             </div>
             <div class="modal-body" style="padding: 1rem;">
-                <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem; margin-bottom: 1.5rem; font-size: 0.9rem;">
-                    <strong>Action Required:</strong> You have incomplete jobs from <?php echo $previous_date ? formatDateDisplay($previous_date) : 'the previous working date'; ?>. 
-                    Please decide which jobs to carry over to today and which to release back to the job pool.
-                </p>
                 <div class="started-jobs" style="margin-bottom: 2rem;">
-                    <h4 style="color: #059669; margin-bottom: 1rem;">✓ Started Jobs (Recommended for Carry Over)</h4>
+                    <h4 style="color: #059669; margin-bottom: 1rem;">✓ Started but Not Complete (Carry Over Recommended)</h4>
                     <div id="startedJobsList" style="display: grid; gap: 0.5rem;">
                         <!-- Will be populated by JavaScript -->
                     </div>
                 </div>
                 <div class="not-started-jobs">
-                    <h4 style="color: #dc2626; margin-bottom: 1rem;">⚠ Not Started Jobs (Recommended for Release)</h4>
+                    <h4 style="color: #dc2626; margin-bottom: 1rem;">⚠ Not Started (Release to Pool Recommended)</h4>
                     <div id="notStartedJobsList" style="display: grid; gap: 0.5rem;">
                         <!-- Will be populated by JavaScript -->
                     </div>
@@ -2332,7 +1709,7 @@ $downtime_events = $db->getAll("
             <div class="modal-footer" style="display: flex; justify-content: space-between; padding: 1rem; border-top: 1px solid #e5e7eb; background: #f9fafb;">
                 <button onclick="selectAllStarted()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Select All Started</button>
                 <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="skipPreviousJobs()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Release All</button>
+                    <button onclick="skipPreviousJobs()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Skip All</button>
                     <button onclick="carryOverSelected()" class="btn btn-primary" style="padding: 0.5rem 1rem; background: #3b82f6; color: white;">Carry Over Selected</button>
                 </div>
             </div>
@@ -2346,21 +1723,11 @@ $downtime_events = $db->getAll("
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.5);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
-            backdrop-filter: blur(2px);
-        }
-        
-        .modal.blocking {
-            pointer-events: auto;
-        }
-        
-        .modal.blocking .modal-content {
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            border: 2px solid #f59e0b;
         }
         
         .modal-content {

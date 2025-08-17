@@ -6,6 +6,54 @@
 
 require_once __DIR__ . '/../config/database.php';
 
+// Handle AJAX requests for burn rate data
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_burn_rate') {
+    header('Content-Type: application/json');
+    
+    if (!isset($_POST['job_id'])) {
+        echo json_encode(['success' => false, 'message' => 'Job ID required']);
+        exit;
+    }
+    
+    $job_id = intval($_POST['job_id']);
+    $burn_rate_data = calculateBurnRate($job_id);
+    
+    echo json_encode([
+        'success' => true,
+        'burn_rate_data' => $burn_rate_data
+    ]);
+    exit;
+}
+
+// Handle AJAX requests for buffer status data
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'get_buffer_status') {
+    header('Content-Type: application/json');
+    
+    if (!isset($_POST['machine_code'], $_POST['date'], $_POST['shift'])) {
+        echo json_encode(['success' => false, 'message' => 'Machine code, date, and shift required']);
+        exit;
+    }
+    
+    $machine_code = $_POST['machine_code'];
+    $date = $_POST['date'];
+    $shift = $_POST['shift'];
+    
+    // Convert shift letter to number if needed (A=1, B=2, C=3)
+    $shift_num = $shift;
+    if (is_string($shift_num)) {
+        $shift_map = ['A' => 1, 'B' => 2, 'C' => 3];
+        $shift_num = $shift_map[$shift_num] ?? 1;
+    }
+    
+    $buffer_status = calculateBufferStatus($machine_code, $date, $shift_num);
+    
+    echo json_encode([
+        'success' => true,
+        'buffer_status' => $buffer_status
+    ]);
+    exit;
+}
+
 /**
  * Get the previous working date excluding Sundays and holidays
  * 
@@ -230,37 +278,47 @@ function calculateBufferStatus($machine, $date, $shift, $shift_minutes = 480) {
  * @param int $planning_id Planning ID
  * @return array Burn rate metrics
  */
-function calculateBurnRate($planning_id) {
+function calculateBurnRate($job_id) {
     $db = Database::getInstance()->getConnection();
     
-    // Get job details
+    // Get job details from operations table, optionally join with mach_planning
     $sql = "
         SELECT 
-            mp.*,
+            o.op_id,
             o.op_act_prdqty,
             o.op_pln_prdqty,
             o.op_status,
             mp.mp_op_start,
             mp.mp_op_end,
+            COALESCE(mp.mp_op_start, NOW()) as start_time,
+            COALESCE(mp.mp_op_end, DATE_ADD(NOW(), INTERVAL 2 HOUR)) as end_time,
             NOW() as current_time
-        FROM mach_planning mp
-        JOIN operations o ON mp.mp_op_id = o.op_id
-        WHERE mp.mp_op_id = ?
+        FROM operations o
+        LEFT JOIN mach_planning mp ON o.op_id = mp.mp_op_id
+        WHERE o.op_id = ?
     ";
     
-    $job = $db->GetRow($sql, array($planning_id));
+    $job = $db->GetRow($sql, array($job_id));
     
     if (!$job || $job['op_status'] < 3) {
-        return array('burn_rate' => 0, 'status' => 'not_started');
+        return array('burn_rate' => 0, 'status' => 'not_started', 'time_progress' => 0, 'qty_progress' => 0);
     }
     
     // Calculate time progress
-    $start_time = new DateTime($job['mp_op_start']);
-    $end_time = new DateTime($job['mp_op_end']);
+    $start_time = new DateTime($job['start_time']);
+    $end_time = new DateTime($job['end_time']);
     $current_time = new DateTime();
     
-    $total_minutes = $start_time->diff($end_time)->i + ($start_time->diff($end_time)->h * 60);
-    $elapsed_minutes = $start_time->diff($current_time)->i + ($start_time->diff($current_time)->h * 60);
+    // Handle case where job hasn't started yet
+    if ($current_time < $start_time) {
+        return array('burn_rate' => 0, 'status' => 'not_started', 'time_progress' => 0, 'qty_progress' => 0);
+    }
+    
+    $total_interval = $start_time->diff($end_time);
+    $elapsed_interval = $start_time->diff($current_time);
+    
+    $total_minutes = ($total_interval->h * 60) + $total_interval->i + ($total_interval->days * 24 * 60);
+    $elapsed_minutes = ($elapsed_interval->h * 60) + $elapsed_interval->i + ($elapsed_interval->days * 24 * 60);
     
     $time_progress = $total_minutes > 0 ? ($elapsed_minutes / $total_minutes) : 0;
     
