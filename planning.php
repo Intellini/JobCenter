@@ -7,6 +7,7 @@
 // Include session configuration
 require_once 'config/session.php';
 require_once 'helpers/date_helper.php';
+require_once 'helpers/planning_helper.php';
 
 // Initialize session with security settings
 initializeSession();
@@ -76,29 +77,33 @@ $available_jobs = $db->getAll("
     ORDER BY o.op_date ASC, o.op_seq ASC
 ", [$machine['mm_id']]);
 
-// Check for incomplete jobs from previous date
-$previous_date = date('Y-m-d', strtotime($work_date . ' -1 day'));
-$previous_jobs = $db->getAll("
-    SELECT 
-        mp.*,
-        o.op_lot,
-        o.op_status as current_status,
-        wi.im_name as item_name,
-        oh.ob_porefno as po_ref,
-        CASE 
-            WHEN COALESCE(o.op_status, mp.mp_op_status) BETWEEN 3 AND 9 THEN 'started'
-            WHEN COALESCE(o.op_status, mp.mp_op_status) IN (0,1,2) THEN 'not_started'
-            ELSE 'other'
-        END as job_category
-    FROM mach_planning mp
-    LEFT JOIN operations o ON mp.mp_op_id = o.op_id
-    LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
-    LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
-    WHERE mp.mp_op_mach = ?
-    AND mp.mp_op_proddate = ?
-    AND COALESCE(o.op_status, mp.mp_op_status) < 10
-    ORDER BY mp.mp_op_seq ASC
-", [$machine['mm_id'], $previous_date]);
+// Check for incomplete jobs from previous working date
+$previous_date = getPreviousWorkingDate($work_date, $db->getConnection());
+$previous_jobs = [];
+
+if ($previous_date) {
+    $previous_jobs = $db->getAll("
+        SELECT 
+            mp.*,
+            o.op_lot,
+            o.op_status as current_status,
+            wi.im_name as item_name,
+            oh.ob_porefno as po_ref,
+            CASE 
+                WHEN COALESCE(o.op_status, mp.mp_op_status) BETWEEN 3 AND 9 THEN 'started'
+                WHEN COALESCE(o.op_status, mp.mp_op_status) IN (0,1,2) THEN 'not_started'
+                ELSE 'other'
+            END as job_category
+        FROM mach_planning mp
+        LEFT JOIN operations o ON mp.mp_op_id = o.op_id
+        LEFT JOIN wip_items wi ON o.op_prod = wi.im_id
+        LEFT JOIN orders_head oh ON o.op_obid = oh.ob_id
+        WHERE mp.mp_op_mach = ?
+        AND mp.mp_op_proddate = ?
+        AND COALESCE(o.op_status, mp.mp_op_status) < 10
+        ORDER BY mp.mp_op_seq ASC
+    ", [$machine['mm_id'], $previous_date]);
+}
 
 // Check if current date already has planning
 $current_planning = $db->getValue("
@@ -1411,7 +1416,7 @@ $current_planning = $db->getValue("
         
         // Previous Jobs Modal Functions
         function checkPreviousJobs() {
-            fetch('/jc/api/actions/planning.php', {
+            fetch('api/actions/planning.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1426,6 +1431,8 @@ $current_planning = $db->getValue("
             .then(data => {
                 if (data.success && data.jobs && data.jobs.length > 0) {
                     showPreviousJobsModal(data.jobs);
+                } else {
+                    console.log('No previous jobs found');
                 }
             })
             .catch(error => {
@@ -1434,42 +1441,50 @@ $current_planning = $db->getValue("
         }
         
         function showPreviousJobsModal(jobs) {
-            const startedJobs = jobs.filter(job => job.category === 'started');
-            const notStartedJobs = jobs.filter(job => job.category === 'not_started');
+            const startedJobs = jobs.filter(job => job.job_category === 'started');
+            const notStartedJobs = jobs.filter(job => job.job_category === 'not_started');
             
             // Populate started jobs list
             const startedList = document.getElementById('startedJobsList');
-            startedList.innerHTML = startedJobs.map(job => `
-                <div class="job-checkbox-item ${job.category === 'started' ? 'selected' : ''}" data-job-id="${job.job_id}">
-                    <input type="checkbox" id="job_${job.job_id}" ${job.category === 'started' ? 'checked' : ''} />
-                    <div class="job-checkbox-details">
-                        <div class="job-checkbox-lot">${job.lot || 'No Lot'}</div>
-                        <div class="job-checkbox-info">
-                            ${job.item_name || job.item_code} - Qty: ${job.quantity}
+            if (startedJobs.length === 0) {
+                startedList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #6b7280; font-style: italic;">No started jobs found</div>';
+            } else {
+                startedList.innerHTML = startedJobs.map(job => `
+                    <div class="job-checkbox-item selected" data-job-id="${job.mp_op_id}">
+                        <input type="checkbox" id="job_${job.mp_op_id}" checked />
+                        <div class="job-checkbox-details">
+                            <div class="job-checkbox-lot">${job.op_lot || job.mp_op_lot || 'No Lot'}</div>
+                            <div class="job-checkbox-info">
+                                ${job.item_name || job.mp_op_proditm || 'Unknown Item'} - Qty: ${job.mp_op_pln_prdqty || 0}
+                            </div>
                         </div>
+                        <span class="job-status-badge" style="background: ${getStatusColor(job.current_status || job.mp_op_status)}; color: white;">
+                            ${getStatusLabel(job.current_status || job.mp_op_status)}
+                        </span>
                     </div>
-                    <span class="job-status-badge" style="background: ${getStatusColor(job.status)}; color: white;">
-                        ${getStatusLabel(job.status)}
-                    </span>
-                </div>
-            `).join('');
+                `).join('');
+            }
             
             // Populate not started jobs list
             const notStartedList = document.getElementById('notStartedJobsList');
-            notStartedList.innerHTML = notStartedJobs.map(job => `
-                <div class="job-checkbox-item" data-job-id="${job.job_id}">
-                    <input type="checkbox" id="job_${job.job_id}" />
-                    <div class="job-checkbox-details">
-                        <div class="job-checkbox-lot">${job.lot || 'No Lot'}</div>
-                        <div class="job-checkbox-info">
-                            ${job.item_name || job.item_code} - Qty: ${job.quantity}
+            if (notStartedJobs.length === 0) {
+                notStartedList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #6b7280; font-style: italic;">No not-started jobs found</div>';
+            } else {
+                notStartedList.innerHTML = notStartedJobs.map(job => `
+                    <div class="job-checkbox-item" data-job-id="${job.mp_op_id}">
+                        <input type="checkbox" id="job_${job.mp_op_id}" />
+                        <div class="job-checkbox-details">
+                            <div class="job-checkbox-lot">${job.op_lot || job.mp_op_lot || 'No Lot'}</div>
+                            <div class="job-checkbox-info">
+                                ${job.item_name || job.mp_op_proditm || 'Unknown Item'} - Qty: ${job.mp_op_pln_prdqty || 0}
+                            </div>
                         </div>
+                        <span class="job-status-badge" style="background: ${getStatusColor(job.current_status || job.mp_op_status)}; color: white;">
+                            ${getStatusLabel(job.current_status || job.mp_op_status)}
+                        </span>
                     </div>
-                    <span class="job-status-badge" style="background: ${getStatusColor(job.status)}; color: white;">
-                        ${getStatusLabel(job.status)}
-                    </span>
-                </div>
-            `).join('');
+                `).join('');
+            }
             
             // Add click handlers for job items
             document.querySelectorAll('.job-checkbox-item').forEach(item => {
@@ -1484,12 +1499,25 @@ $current_planning = $db->getValue("
                 });
             });
             
-            // Show modal
-            document.getElementById('previousJobsModal').style.display = 'flex';
+            // Show modal as blocking
+            const modal = document.getElementById('previousJobsModal');
+            modal.style.display = 'flex';
+            modal.classList.add('blocking');
+            
+            // Prevent modal from being closed by clicking outside
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert('Please make a decision about the previous jobs before continuing.');
+                    return false;
+                }
+            });
         }
         
         function closePreviousJobsModal() {
-            document.getElementById('previousJobsModal').style.display = 'none';
+            // Modal cannot be closed without making a decision
+            alert('Please make a decision about the previous jobs before continuing.');
         }
         
         function selectAllStarted() {
@@ -1501,7 +1529,48 @@ $current_planning = $db->getValue("
         }
         
         function skipPreviousJobs() {
-            closePreviousJobsModal();
+            if (!confirm('Are you sure you want to release ALL previous jobs back to the job pool? This cannot be undone.')) {
+                return;
+            }
+            
+            // Release all jobs by carrying over none
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            
+            fetch('api/actions/planning.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'handle_previous_jobs',
+                    machine_id: MACHINE_ID,
+                    current_date: WORK_DATE,
+                    selected_jobs: [] // Empty array means release all
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const modal = document.getElementById('previousJobsModal');
+                    modal.style.display = 'none';
+                    modal.classList.remove('blocking');
+                    console.log(`Released ${data.released} jobs to pool`);
+                    // Reload page to show updated planning
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to release jobs'));
+                    button.disabled = false;
+                    button.textContent = 'Release All';
+                }
+            })
+            .catch(error => {
+                console.error('Error releasing jobs:', error);
+                alert('Error releasing jobs. Please try again.');
+                button.disabled = false;
+                button.textContent = 'Release All';
+            });
         }
         
         function carryOverSelected() {
@@ -1521,7 +1590,7 @@ $current_planning = $db->getValue("
             button.disabled = true;
             button.textContent = 'Processing...';
             
-            fetch('/jc/api/actions/planning.php', {
+            fetch('api/actions/planning.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1536,6 +1605,9 @@ $current_planning = $db->getValue("
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    const modal = document.getElementById('previousJobsModal');
+                    modal.style.display = 'none';
+                    modal.classList.remove('blocking');
                     console.log(`Carried over ${data.carried_over} jobs, released ${data.released} jobs`);
                     // Reload page to show updated planning
                     location.reload();
@@ -1673,9 +1745,9 @@ $current_planning = $db->getValue("
             
             // Check for previous jobs on page load
             <?php if (!empty($previous_jobs)): ?>
-            document.getElementById('loadingMessage').textContent = 'Checking incomplete jobs from previous date...';
+            document.getElementById('loadingMessage').textContent = 'Checking incomplete jobs from previous working date...';
             setTimeout(() => {
-                checkPreviousJobs();
+                showPreviousJobsModal(<?php echo json_encode($previous_jobs); ?>);
                 hideLoadingOverlay();
             }, 500);
             <?php else: ?>
@@ -1689,18 +1761,22 @@ $current_planning = $db->getValue("
     <div id="previousJobsModal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #e5e7eb;">
-                <h3 style="margin: 0; color: #1f2937;">Incomplete Jobs from Previous Date</h3>
-                <button onclick="closePreviousJobsModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">&times;</button>
+                <h3 style="margin: 0; color: #1f2937;">Incomplete Jobs from Previous Working Date</h3>
+                <div style="background: #f59e0b; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">DECISION REQUIRED</div>
             </div>
             <div class="modal-body" style="padding: 1rem;">
+                <p style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 0.75rem; margin-bottom: 1.5rem; font-size: 0.9rem;">
+                    <strong>Action Required:</strong> You have incomplete jobs from <?php echo $previous_date ? formatDateDisplay($previous_date) : 'the previous working date'; ?>. 
+                    Please decide which jobs to carry over to today and which to release back to the job pool.
+                </p>
                 <div class="started-jobs" style="margin-bottom: 2rem;">
-                    <h4 style="color: #059669; margin-bottom: 1rem;">✓ Started but Not Complete (Carry Over Recommended)</h4>
+                    <h4 style="color: #059669; margin-bottom: 1rem;">✓ Started Jobs (Recommended for Carry Over)</h4>
                     <div id="startedJobsList" style="display: grid; gap: 0.5rem;">
                         <!-- Will be populated by JavaScript -->
                     </div>
                 </div>
                 <div class="not-started-jobs">
-                    <h4 style="color: #dc2626; margin-bottom: 1rem;">⚠ Not Started (Release to Pool Recommended)</h4>
+                    <h4 style="color: #dc2626; margin-bottom: 1rem;">⚠ Not Started Jobs (Recommended for Release)</h4>
                     <div id="notStartedJobsList" style="display: grid; gap: 0.5rem;">
                         <!-- Will be populated by JavaScript -->
                     </div>
@@ -1709,7 +1785,7 @@ $current_planning = $db->getValue("
             <div class="modal-footer" style="display: flex; justify-content: space-between; padding: 1rem; border-top: 1px solid #e5e7eb; background: #f9fafb;">
                 <button onclick="selectAllStarted()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Select All Started</button>
                 <div style="display: flex; gap: 0.5rem;">
-                    <button onclick="skipPreviousJobs()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Skip All</button>
+                    <button onclick="skipPreviousJobs()" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Release All</button>
                     <button onclick="carryOverSelected()" class="btn btn-primary" style="padding: 0.5rem 1rem; background: #3b82f6; color: white;">Carry Over Selected</button>
                 </div>
             </div>
@@ -1723,11 +1799,21 @@ $current_planning = $db->getValue("
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.75);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
+            backdrop-filter: blur(2px);
+        }
+        
+        .modal.blocking {
+            pointer-events: auto;
+        }
+        
+        .modal.blocking .modal-content {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 2px solid #f59e0b;
         }
         
         .modal-content {
