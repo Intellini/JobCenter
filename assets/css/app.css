@@ -19,6 +19,12 @@
     /* Touch feedback colors */
     --touch-feedback: rgba(37, 99, 235, 0.1);
     --loading-overlay: rgba(255, 255, 255, 0.8);
+    
+    /* Time Loss Card Colors */
+    --setup-delay-color: #FFA500;
+    --breakdown-color: #DC2626;
+    --changeover-color: #FCD34D;
+    --rate-loss-color: #9333EA;
 }
 
 /* Reset & Base */
@@ -2320,4 +2326,246 @@ textarea:focus-visible {
         break-inside: avoid;
         page-break-inside: avoid;
     }
+}
+
+
+/* Time Loss Cards */
+.time-loss-card {
+    height: 30px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    margin: 5px 0;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    position: absolute;
+    min-width: 60px;
+}
+
+.time-loss-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.time-loss-card .icon {
+    margin-right: 5px;
+    font-size: 14px;
+}
+
+.time-loss-card .duration {
+    font-weight: bold;
+}
+
+.time-loss-card.setup {
+    background: linear-gradient(45deg, var(--setup-delay-color), #FFB52E);
+}
+
+.time-loss-card.breakdown {
+    background: linear-gradient(45deg, var(--breakdown-color), #EF4444);
+    animation: pulse 2s infinite;
+}
+
+.time-loss-card.changeover {
+    background: linear-gradient(45deg, var(--changeover-color), #FDE68A);
+    color: #92400E;
+}
+
+.time-loss-card.rate {
+    background: linear-gradient(45deg, var(--rate-loss-color), #A855F7);
+}
+
+/* Burn Rate Display */
+.burn-rate-display {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.burn-rate-bar {
+    height: 24px;
+    background: #E5E7EB;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 8px 0;
+    position: relative;
+}
+
+.burn-rate-fill {
+    height: 100%;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.burn-rate-fill.on-track {
+    background: linear-gradient(90deg, #10B981, #059669);
+}
+
+.burn-rate-fill.slightly-behind {
+    background: linear-gradient(90deg, #F59E0B, #D97706);
+}
+
+.burn-rate-fill.behind {
+    background: linear-gradient(90deg, #FB923C, #EA580C);
+}
+
+.burn-rate-fill.critical {
+    background: linear-gradient(90deg, #EF4444, #DC2626);
+    animation: flash 1s infinite;
+}
+
+.burn-rate-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.burn-rate-value {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.burn-rate-status {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.burn-rate-status.on-track {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.burn-rate-status.behind {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+/* Buffer Indicator */
+.buffer-indicator {
+    background: #F3F4F6;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+}
+
+.buffer-indicator.healthy {
+    border-color: #10B981;
+    background: #F0FDF4;
+}
+
+.buffer-indicator.warning {
+    border-color: #F59E0B;
+    background: #FFFBEB;
+}
+
+.buffer-indicator.critical {
+    border-color: #EF4444;
+    background: #FEF2F2;
+    animation: flash-bg 1s infinite;
+}
+
+.buffer-bar {
+    height: 8px;
+    background: #E5E7EB;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+}
+
+.buffer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3B82F6, #2563EB);
+    transition: width 0.3s ease;
+}
+
+.buffer-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+.buffer-percentage {
+    font-weight: bold;
+}
+
+.overtime-warning {
+    color: #DC2626;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+@keyframes flash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes flash-bg {
+    0%, 100% { background: #FEF2F2; }
+    50% { background: #FEE2E2; }
+}
+
+/* Dual Progress Display */
+.dual-progress {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.progress-item {
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.progress-item-label {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-bottom: 5px;
+}
+
+.progress-item-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.progress-item-bar {
+    height: 4px;
+    background: #E5E7EB;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.progress-item-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
 }
